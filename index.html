@@ -884,7 +884,8 @@ function borderStamps(){
   const c = state.cream, sz = c.style.size, key = JSON.stringify([c.edges, sz, c.style.tip]);
   if(bCache.key === key) return bCache.v;
   // 굵은 크림일수록 테두리 안쪽으로 자리를 옮겨서 바깥으로 넘치지 않게
-  const ins = Math.max(15, sz/2 - 18), L = X0+ins, Rt = X0+TW-ins, T = Y0+Math.max(22, ins), Bm = Y0+TH-ins, rc = 14 + (ins-15)*.5, pts = [];
+  // 크림 덩어리 사이 틈으로 탑로더 테두리가 비치지 않게: 굵을수록 바깥 테두리 쪽에 걸쳐 짜요
+  const ins = Math.max(15, sz*.28), L = X0+ins, Rt = X0+TW-ins, T = Y0+Math.max(20, ins), Bm = Y0+TH-ins, rc = 14 + (ins-15)*.5, pts = [];
   const line = (x1,y1,x2,y2,e)=>{ const n = Math.max(1, Math.ceil(Math.hypot(x2-x1,y2-y1)/2)); for(let i=0;i<n;i++){ const t=i/n; pts.push({ x:x1+(x2-x1)*t, y:y1+(y2-y1)*t, e }); } };
   const arc = (cx,cy,a1,a2,e)=>{ for(let i=0;i<12;i++){ const a = a1+(a2-a1)*i/12; pts.push({ x:cx+Math.cos(a)*rc, y:cy+Math.sin(a)*rc, e }); } };
   const H = Math.PI/2;
@@ -894,22 +895,24 @@ function borderStamps(){
   line(L,Bm-rc,L,T+rc,'left');     arc(L+rc,T+rc,2*H,3*H,'tl');
   const E = c.edges, corner = { tr:E.top||E.right, br:E.right||E.bottom, bl:E.bottom||E.left, tl:E.left||E.top };
   const flags = pts.map(p => p.e in corner ? corner[p.e] : E[p.e]);
-  let out = [];
+  let out = []; const runs = [];   // runs: 바닥 크림을 그릴 실제 테두리 경로
   if(flags.every(Boolean)){
+    runs.push({ pts: pts.map(p=>[p.x,p.y]), closed: true });
     out = stampsAlong(pts.map(p=>[p.x,p.y,sz]), c.style.tip, true);
     out.forEach((p,i)=>{ const u = i/out.length; p.t = 1 - Math.abs(2*u-1); });   // 한 바퀴 돌아 이음매 없이
   } else if(flags.some(Boolean)){
     const st = flags.indexOf(false), order = [...pts.keys()].map(i => (i+st)%pts.length);
     let run = [];
-    const flush = ()=>{ if(run.length) out = out.concat(stampsAlong(run, c.style.tip, false)); run = []; };
+    const flush = ()=>{ if(run.length){ out = out.concat(stampsAlong(run, c.style.tip, false)); runs.push({ pts: run.map(q=>[q[0],q[1]]), closed: false }); } run = []; };
     order.forEach(i => { if(flags[i]) run.push([pts[i].x, pts[i].y, sz]); else flush(); });
     flush();
     out.forEach((p,i)=>{ p.t = out.length>1 ? i/(out.length-1) : 0; });
   }
+  out.runs = runs;
   bCache = { key, v:out };
   return out;
 }
-function drawLayer(ctx, stamps, st, seed){
+function drawLayer(ctx, stamps, st, seed, base){
   const solid = st.grad ? null : creamShades(st.color), cache = {};
   const shadesAt = t => { if(solid) return solid; const k = Math.round(t*32); return cache[k] || (cache[k] = creamShades(mixHex(st.color, st.color2 || st.color, k/32))); };
   const n = stamps.length;
@@ -920,6 +923,17 @@ function drawLayer(ctx, stamps, st, seed){
     g.addColorStop(0,'rgba(55,35,65,.28)'); g.addColorStop(1,'rgba(55,35,65,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2); ctx.fill();
   });
+  // 1-2) 테두리 크림의 바닥 크림: 덩어리 사이 틈을 메워서 탑로더 테두리가 비치지 않게
+  if(base && stamps.length > 1){
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // 그라데이션이면 중간 색으로, 아니면 크림 색의 그늘 톤으로 테두리 경로를 따라 굵게 칠해요
+    ctx.strokeStyle = shadesAt(.5).dark; ctx.lineWidth = stamps[0].s*.8;
+    (stamps.runs || []).forEach(r=>{
+      ctx.beginPath(); r.pts.forEach((q,i)=> i ? ctx.lineTo(q[0],q[1]) : ctx.moveTo(q[0],q[1]));
+      if(r.closed) ctx.closePath(); ctx.stroke();
+    });
+    ctx.restore();
+  }
   // 2) 크림 본체
   stamps.forEach((p,i) => drawStamp(ctx, st.tip, p.x, p.y, p.s/2, p.a, shadesAt(p.t ?? (n>1 ? i/(n-1) : 0)), (i*.9 + seed*1.7) % (Math.PI*2)));
   // 3) 토핑
@@ -935,7 +949,7 @@ function drawLayer(ctx, stamps, st, seed){
 }
 function drawCream(ctx){
   const E = state.cream.edges;
-  if(E.top || E.bottom || E.left || E.right) drawLayer(ctx, borderStamps(), state.cream.style, 1);
+  if(E.top || E.bottom || E.left || E.right) drawLayer(ctx, borderStamps(), state.cream.style, 1, true);
   state.strokes.forEach((st,i) => drawLayer(ctx, stampsAlong(st.points, st.tip, false), st, i+2));
 }
 
