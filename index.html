@@ -188,7 +188,10 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .dialog{background:var(--bg);border-radius:24px;padding:18px;max-width:400px;width:100%;display:flex;flex-direction:column;gap:14px;align-items:center;max-height:100%}
 .dialog img{max-height:60vh;width:auto;max-width:100%;object-fit:contain}
 .dialog p{margin:0;text-align:center}
-.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:60;max-width:calc(100% - 32px);text-align:center}
+.done{font-size:16px;font-weight:800;line-height:1.55;color:var(--ink)}
+.done b{color:var(--accent)}
+.dialog .note{text-align:center}
+.toast{white-space:pre-line;line-height:1.5;position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:60;max-width:calc(100% - 32px);text-align:center}
 
 @media (max-width:420px){ .top h1{font-size:13px} .btn.small{padding:6px 7px;font-size:12px} .btn.small.icon{padding:6px 7px} .top .actions{gap:5px} .top .actions .btn.primary{padding:8px 12px;font-size:13px} }
 /* 모바일: 한 화면 안에 작업대(위)와 도구(아래)가 함께 보이게. 페이지는 스크롤되지 않고 도구 시트만 안에서 스크롤 */
@@ -347,7 +350,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 <div class="modal" id="modal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalMsg">
     <img id="modalImg" alt="완성된 탑로더 이미지">
-    <p id="modalMsg">이미지를 길게 누르거나 오른쪽 클릭해서 저장하세요.</p>
+    <p class="done" id="modalMsg">✨오늘의 탑꾸 저장 완료✨<br><b>#오아라이브탑꾸</b>로 자랑해 주세요!</p>
+    <p class="note">이미지가 저장되지 않았다면 길게 누르거나 오른쪽 클릭해서 저장하세요.</p>
     <button class="btn primary" type="button" id="modalClose">닫기</button>
   </div>
 </div>
@@ -1860,7 +1864,7 @@ $('resetBtn').addEventListener('click', ()=>{
 
 /* 알림 */
 let toastT = 0;
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true, 2200); }
+function toast(msg, ms=2200){ const t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true, ms); }
 
 /* =========================================================
    PNG 저장: 화면과 같은 그리기 함수로, 편집 표시만 끄고 그림
@@ -1887,7 +1891,7 @@ async function savePNG(){
     const name = `toploader-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.png`;
     if(downloads === undefined) await Promise.race([downloadsP, new Promise(r=>setTimeout(r,1500))]);
     if(downloads){
-      try{ await downloads.save({ filename:name, data:blob }); toast('PNG로 저장했어요'); SFX.tinks(6, .25); return; }
+      try{ await downloads.save({ filename:name, data:blob }); toast('✨오늘의 탑꾸 저장 완료✨\n#오아라이브탑꾸로 자랑해 주세요!', 3800); SFX.tinks(6, .25); return; }
       catch(err){
         const code = err && err.code;
         if(code==='declined'){ toast('저장을 취소했어요'); return; }
@@ -1903,7 +1907,7 @@ function fallbackSave(blob, name){
   modalUrl && URL.revokeObjectURL(modalUrl);
   modalUrl = URL.createObjectURL(blob);
   try{ const a = document.createElement('a'); a.href = modalUrl; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }catch(_){}
-  $('modalImg').src = modalUrl; $('modal').hidden = false; $('modalClose').focus();
+  $('modalImg').src = modalUrl; $('modal').hidden = false; $('modalClose').focus(); SFX.tinks(6, .25);
 }
 function closeModal(){ $('modal').hidden = true; }
 $('modalClose').addEventListener('click', closeModal);
