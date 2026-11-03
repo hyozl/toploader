@@ -195,7 +195,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .done{font-size:16px;font-weight:800;line-height:1.55;color:var(--ink)}
 .done b{color:var(--accent)}
 .dialog .note{text-align:center}
-.toast{white-space:pre-line;line-height:1.5;position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:60;max-width:calc(100% - 32px);text-align:center}
+.toast{white-space:pre-line;word-break:keep-all;line-height:1.5;position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:60;max-width:calc(100% - 32px);text-align:center}
 
 @media (max-width:480px){ .top h1{font-size:13px;white-space:normal;flex:1 1 auto;min-width:0;line-height:1.25;word-break:keep-all} .btn.small{padding:6px 7px;font-size:12px} .btn.small.icon{padding:6px 7px} .top .actions{gap:5px} .top .actions .btn.primary{padding:8px 12px;font-size:13px} }
 /* 모바일: 한 화면 안에 작업대(위)와 도구(아래)가 함께 보이게. 페이지는 스크롤되지 않고 도구 시트만 안에서 스크롤 */
@@ -360,7 +360,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 <div class="modal" id="modal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalMsg">
     <img id="modalImg" alt="완성된 탑로더 이미지">
-    <p class="done" id="modalMsg">✨오늘의 탑꾸 저장 완료✨<br><b>#오아라이브탑꾸</b>로 자랑해 주세요!</p>
+    <p class="done" id="modalMsg">✨오늘의 탑꾸 저장 완료✨<br><b>#오아라이브탑꾸</b> 자랑하기</p>
     <p class="note">이미지가 저장되지 않았다면 길게 누르거나 오른쪽 클릭해서 저장하세요.</p>
     <button class="btn primary" type="button" id="modalClose">닫기</button>
   </div>
@@ -1918,7 +1918,7 @@ async function savePNG(){
     const name = `toploader-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.png`;
     if(downloads === undefined) await Promise.race([downloadsP, new Promise(r=>setTimeout(r,1500))]);
     if(downloads){
-      try{ await downloads.save({ filename:name, data:blob }); toast('✨오늘의 탑꾸 저장 완료✨\n#오아라이브탑꾸로 자랑해 주세요!', 3800); SFX.tinks(6, .25); return; }
+      try{ await downloads.save({ filename:name, data:blob }); toast('✨오늘의 탑꾸 저장 완료✨\n#오아라이브탑꾸 자랑하기', 3800); SFX.tinks(6, .25); return; }
       catch(err){
         const code = err && err.code;
         if(code==='declined'){ toast('저장을 취소했어요'); return; }
