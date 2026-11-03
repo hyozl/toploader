@@ -35,11 +35,12 @@ cd toploader
 
 ## 배포
 
-GitHub Pages로 배포해요. 저장소 **Settings → Pages**에서 Source를 **Deploy from a branch**, Branch를 **main / (root)** 로 설정하면 아래 주소로 열려요.
+Cloudflare Pages가 이 저장소에 연결되어 있어서, `main`에 올리면 1~2분 뒤 자동으로 배포돼요.
 
-- https://hyozl.github.io/toploader/
+- 대표 주소 (Cloudflare Pages): https://toploader-a7o.pages.dev/
+- 예비 주소 (GitHub Pages): https://hyozl.github.io/toploader/
 
-수정할 때는 `index.html`을 바꿔서 `main`에 올리면 1~2분 뒤 사이트에 반영돼요.
+Cloudflare Pages 설정: Framework preset **None**, Build command 비움, Build output directory `/`
 
 ## 파츠 추가하는 법
 
@@ -67,4 +68,4 @@ GitHub Pages로 배포해요. 저장소 **Settings → Pages**에서 Source를 *
 
 ## 관련 링크
 
-- 배포 주소: https://hyozl.github.io/toploader/
+- 배포 주소: https://toploader-a7o.pages.dev/
