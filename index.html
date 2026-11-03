@@ -1323,7 +1323,6 @@ function addText(){
   $('textIn').value = ''; selected = null;
   record(); syncUI(); draw();
   if(typing) $('textIn').focus();
-  toast('글씨를 붙였어요 · 새 글씨를 이어서 쓸 수 있어요');
 }
 function removeSelected(){
   const i = state.items.findIndex(x=>x.id===selected); if(i<0) return;
