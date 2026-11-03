@@ -98,7 +98,7 @@ button{cursor:pointer}
 .work{min-width:0;display:flex;flex-direction:column;align-items:center;gap:10px}
 .stage{position:relative;width:100%;height:calc(100dvh - 110px);min-height:440px;max-height:980px;display:flex;align-items:center;justify-content:center}
 .stage.drop::after{content:"";position:absolute;inset:8px;border:2px dashed var(--accent);border-radius:24px;pointer-events:none}
-#cv{display:block;touch-action:none;user-select:none;-webkit-user-select:none;filter:drop-shadow(0 16px 22px rgba(70,50,110,.12))}
+#cv{display:block;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;filter:drop-shadow(0 16px 22px rgba(70,50,110,.12))}
 .empty{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);text-align:center;white-space:nowrap;pointer-events:none;color:var(--muted);font-size:14px;line-height:1.6}
 .empty b{display:block;color:var(--ink);font-size:17px;font-weight:800}
 .resume{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);white-space:nowrap}
@@ -191,10 +191,21 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:60;max-width:calc(100% - 32px);text-align:center}
 
 @media (max-width:420px){ .top h1{font-size:13px} .btn.small{padding:6px 7px;font-size:12px} .btn.small.icon{padding:6px 7px} .top .actions{gap:5px} .top .actions .btn.primary{padding:8px 12px;font-size:13px} }
+/* 모바일: 한 화면 안에 작업대(위)와 도구(아래)가 함께 보이게. 페이지는 스크롤되지 않고 도구 시트만 안에서 스크롤 */
 @media (max-width:860px){
-  .main{grid-template-columns:minmax(0,1fr);gap:4px}
-  .stage{height:min(62svh,calc((100vw - 32px) * 1.3));min-height:340px}
-  .sheet{position:static;border-radius:28px 28px 22px 22px}
+  body{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;overflow:hidden;touch-action:manipulation}
+  .top{flex:none;width:100%;padding-block:10px 4px}
+  .main{flex:1 1 auto;min-height:0;width:100%;display:flex;flex-direction:column;align-items:stretch;gap:8px;padding-block:0 8px}
+  .work{flex:1 1 0;min-height:180px;position:relative}
+  .stage{height:100%;min-height:0;max-height:none}
+  .selrow{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);z-index:6;min-height:0;gap:6px;white-space:nowrap}
+  .selrow .btn{padding:6px 11px;font-size:12.5px;box-shadow:0 3px 0 var(--soft-shadow),0 4px 12px rgba(60,40,90,.14)}
+  .sheet{position:static;flex:0 1 auto;max-height:44dvh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border-radius:24px;padding-top:0}
+  .tabs{position:sticky;top:0;z-index:3;margin-top:10px;box-shadow:0 -10px 0 var(--sheet)}
+  .pane{padding-top:12px;gap:14px}
+  .textin input,.hexrow input{font-size:16px}   /* 아이폰에서 입력할 때 화면이 확대되지 않게 */
+  .stickers{grid-template-columns:repeat(5,1fr)}
+  .resume{bottom:12%}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -1187,16 +1198,17 @@ cv.addEventListener('pointerdown', e=>{
     if(hit.tint){ partColor = hit.tint; setTab('sticker'); }
     syncUI(); draw(); return;
   }
+  const hadSel = !!selected;
   if(selected){ selected = null; syncUI(); draw(); }
   if(images[state.photo.id]) drag = { mode:'photo', sx:p.x, sy:p.y, x0:state.photo.ox, y0:state.photo.oy, moved:false };
-  else if(inInner(p)) drag = { mode:'tap', moved:false };   // 빈 탑로더를 누르면 사진 고르기
+  else if(inInner(p) && !hadSel && !state.items.length && !state.strokes.length) drag = { mode:'tap', sx:p.x, sy:p.y, moved:false };   // 아무것도 없는 빈 탑로더를 누를 때만 사진 고르기
 });
 cv.addEventListener('pointermove', e=>{
   const p = toLogical(e);
   if(pts.has(e.pointerId)) pts.set(e.pointerId, p);
   if(pinch && pts.size>=2){ doPinch(); return; }
   if(!drag){ hoverCursor(p); return; }
-  if(drag.mode==='tap') return;
+  if(drag.mode==='tap'){ if(Math.hypot(p.x-drag.sx, p.y-drag.sy) > 20*LW/cssW) drag = null; return; }   // 손가락이 미끄러지면 사진 고르기 취소
   if(drag.mode==='pipe') pipeMove(p, e);
   else if(drag.mode==='move'){
     drag.it.x = clamp(drag.x0 + p.x-drag.sx, X0, X0+TW);
@@ -1216,7 +1228,7 @@ function endPointer(e){
   pts.delete(e.pointerId);
   if(pinch){ if(pts.size<2){ if(pinch.moved) record(); pinch=null; } return; }
   if(drag){
-    if(drag.mode==='tap'){ drag = null; if(e.type==='pointerup') $('fileIn').click(); return; }
+    if(drag.mode==='tap'){ drag = null; if(e.type==='pointerup' && performance.now() - (window.__pickAt||0) > 800){ window.__pickAt = performance.now(); $('fileIn').click(); } return; }
     if(drag.mode==='pipe') stopSqueeze();
     if(drag.mode==='move' && drag.moved) SFX.pop(480, .13);
     if(drag.moved) record();
