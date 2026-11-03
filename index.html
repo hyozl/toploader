@@ -98,7 +98,7 @@ button{cursor:pointer}
 .work{min-width:0;display:flex;flex-direction:column;align-items:center;gap:10px}
 .stage{position:relative;overflow:hidden;width:100%;height:calc(100dvh - 110px);min-height:440px;max-height:980px;display:flex;align-items:center;justify-content:center}
 .stage.drop::after{content:"";position:absolute;inset:8px;border:2px dashed var(--accent);border-radius:24px;pointer-events:none}
-#cv{display:block;flex:none;will-change:transform;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;filter:drop-shadow(0 16px 22px rgba(70,50,110,.12))}
+#cv{display:block;flex:none;position:relative;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;filter:drop-shadow(0 16px 22px rgba(70,50,110,.12))}
 .empty{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);text-align:center;white-space:nowrap;pointer-events:none;color:var(--muted);font-size:14px;line-height:1.6}
 .empty b{display:block;color:var(--ink);font-size:17px;font-weight:800}
 .resume{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);white-space:nowrap}
@@ -1116,7 +1116,8 @@ function layoutView(sharp){
   const mx = Math.max(0, (cssW - stage.clientWidth)/2 + 40), my = Math.max(0, (cssH - stage.clientHeight)/2 + 40);
   if(view.z <= 1.001){ view.x = 0; view.y = 0; }
   view.x = clamp(view.x, -mx, mx); view.y = clamp(view.y, -my, my);
-  cv.style.transform = `translate(${view.x}px, ${view.y}px)`;
+  // transform 대신 위치로 옮겨요 (아이폰에서 transform+그림자 조합이 캔버스를 흐리게 그려서)
+  cv.style.left = Math.round(view.x) + 'px'; cv.style.top = Math.round(view.y) + 'px';
   $('zoomLabel').textContent = Math.round(view.z*100) + '%';
   $('zoomFitBtn').hidden = view.z <= 1.001;
   $('zoomOutBtn').disabled = view.z <= ZMIN + .001; $('zoomInBtn').disabled = view.z >= ZMAX - .001;
@@ -1950,7 +1951,7 @@ let saveT = 0, saveReady = false;
 function canvasURL(id, cv){
   if(urlCache[id]) return urlCache[id];
   let url = '';
-  try{ url = cv.toDataURL('image/webp', .85); if(!url.startsWith('data:image/webp')) url = cv.toDataURL('image/jpeg', .85); }catch(_){}
+  try{ url = cv.toDataURL('image/webp', .95); if(!url.startsWith('data:image/webp')) url = cv.toDataURL('image/jpeg', .93); }catch(_){}
   return urlCache[id] = url;
 }
 function scheduleSave(){ if(!saveReady) return; clearTimeout(saveT); saveT = setTimeout(saveWork, 900); }
@@ -1962,7 +1963,11 @@ function saveWork(){
     const photo = images[state.photo.id] ? { id: state.photo.id, src: canvasURL(state.photo.id, images[state.photo.id]) } : null;
     const data = { v:1, uid, state, photo, parts, at: Date.now() };
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }
-    catch(_){ data.photo = null; localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }   // 공간이 모자라면 사진만 빼고
+    catch(_){
+      // 공간이 모자라면 사진을 조금 더 압축해서, 그래도 안 되면 사진만 빼고 저장
+      try{ if(data.photo){ data.photo.src = images[state.photo.id].toDataURL('image/webp', .8); } localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }
+      catch(__){ data.photo = null; localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }
+    }
     $('resumeBtn').hidden = true;
   }catch(_){}
 }
