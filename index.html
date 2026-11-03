@@ -416,7 +416,8 @@ const STICKERS = [
 ];
 
 /* ---------- 고정 치수 (논리 좌표) ---------- */
-const PAD = 70;                  // 편집 손잡이가 보일 여백 (저장 이미지에는 포함되지 않음)
+const PAD = 125;                 // 탑로더 바깥 여백: 파츠가 양옆으로 튀어나와도 보이게 (저장 이미지는 쓰인 만큼만)
+const OUT = 50;                  // 파츠·글씨 가운데가 탑로더 밖으로 나갈 수 있는 거리
 const TW = 600, TH = 820;        // 탑로더 크기
 const LW = TW + PAD*2, LH = TH + PAD*2;
 const X0 = PAD, Y0 = PAD, R = 28;
@@ -645,7 +646,7 @@ function render(ctx, s, tx, ty, edit){
   drawCream(ctx);
 
   // 6) 스티커·글씨
-  ctx.save(); ctx.beginPath(); rr(ctx,X0-BLEED,Y0-BLEED,TW+BLEED*2,TH+BLEED*2,R+BLEED); ctx.clip();
+  ctx.save();
   for(const it of state.items) drawItem(ctx, it, s);
   ctx.restore();
 
@@ -1237,8 +1238,8 @@ cv.addEventListener('pointermove', e=>{
   if(drag.mode==='tap'){ if(Math.hypot(p.x-drag.sx, p.y-drag.sy) > 20*LW/cssW) drag = null; return; }   // 손가락이 미끄러지면 사진 고르기 취소
   if(drag.mode==='pipe') pipeMove(p, e);
   else if(drag.mode==='move'){
-    drag.it.x = clamp(drag.x0 + p.x-drag.sx, X0, X0+TW);
-    drag.it.y = clamp(drag.y0 + p.y-drag.sy, Y0, Y0+TH);
+    drag.it.x = clamp(drag.x0 + p.x-drag.sx, X0-OUT, X0+TW+OUT);
+    drag.it.y = clamp(drag.y0 + p.y-drag.sy, Y0-OUT, Y0+TH+OUT);
   } else if(drag.mode==='xf'){
     const it = drag.it;
     it.scale = clamp(drag.s0 * Math.hypot(p.x-it.x,p.y-it.y)/drag.d0, .25, 4);
@@ -1338,7 +1339,7 @@ function removeSelected(){
 }
 $('selFlip').addEventListener('click', ()=>{ const it = getSel(); if(!it || it.type !== 'sticker') return; it.flip = !it.flip; SFX.pop(560, .12); record(); draw(); });
 $('selFront').addEventListener('click', ()=>{ const i = state.items.findIndex(x=>x.id===selected); if(i<0) return; state.items.push(state.items.splice(i,1)[0]); record(); draw(); });
-$('selDup').addEventListener('click', ()=>{ const it=getSel(); if(!it) return; const c = { ...it, id:'i'+(uid++), x:clamp(it.x+24,X0,X0+TW), y:clamp(it.y+24,Y0,Y0+TH) }; state.items.push(c); selected=c.id; record(); syncUI(); draw(); });
+$('selDup').addEventListener('click', ()=>{ const it=getSel(); if(!it) return; const c = { ...it, id:'i'+(uid++), x:clamp(it.x+24,X0-OUT,X0+TW+OUT), y:clamp(it.y+24,Y0-OUT,Y0+TH+OUT) }; state.items.push(c); selected=c.id; record(); syncUI(); draw(); });
 $('selDel').addEventListener('click', removeSelected);
 
 /* 사진 불러오기 (브라우저 안에서만 처리) */
@@ -1851,7 +1852,7 @@ document.addEventListener('keydown', e=>{
   const ae = document.activeElement;
   if(arrow && selected && !typing && !(ae && ae.closest && ae.closest('.tabs, .sv, .hue, input, .seg'))){
     const it = getSel(); if(it){ e.preventDefault(); const st = e.shiftKey ? 10 : 2;
-      it.x = clamp(it.x + arrow[0]*st, X0, X0+TW); it.y = clamp(it.y + arrow[1]*st, Y0, Y0+TH); draw();
+      it.x = clamp(it.x + arrow[0]*st, X0-OUT, X0+TW+OUT); it.y = clamp(it.y + arrow[1]*st, Y0-OUT, Y0+TH+OUT); draw();
       clearTimeout(nudgeT); nudgeT = setTimeout(record, 400); }
   }
   if((e.key==='Delete'||e.key==='Backspace') && !typing && selected){ e.preventDefault(); removeSelected(); }
@@ -1893,13 +1894,23 @@ async function fontsReady(){
     await document.fonts.ready;
   }catch(_){}
 }
+// 저장할 범위: 기본은 탑로더와 크림 여백. 파츠·글씨가 밖으로 나가 있으면 그만큼 넓혀요
+function exportBounds(){
+  let l = X0-BLEED, t = Y0-BLEED, r = X0+TW+BLEED, b = Y0+TH+BLEED;
+  for(const it of state.items){
+    const k = corners(it), sh = 14;   // 그림자 여유
+    for(const q of [k.tl,k.tr,k.br,k.bl]){ l = Math.min(l, q.x-sh); r = Math.max(r, q.x+sh); t = Math.min(t, q.y-sh); b = Math.max(b, q.y+sh); }
+  }
+  return { l: Math.max(0, l), t: Math.max(0, t), r: Math.min(LW, r), b: Math.min(LH, b) };
+}
 async function savePNG(){
   const btn = $('saveBtn'); btn.disabled = true;
   try{
     await fontsReady();
     const c = document.createElement('canvas');
-    c.width = (TW+BLEED*2)*EXPORT_SCALE; c.height = (TH+BLEED*2)*EXPORT_SCALE;
-    render(c.getContext('2d'), EXPORT_SCALE, -(X0-BLEED)*EXPORT_SCALE, -(Y0-BLEED)*EXPORT_SCALE, false);
+    const bx = exportBounds();
+    c.width = Math.round((bx.r-bx.l)*EXPORT_SCALE); c.height = Math.round((bx.b-bx.t)*EXPORT_SCALE);
+    render(c.getContext('2d'), EXPORT_SCALE, -bx.l*EXPORT_SCALE, -bx.t*EXPORT_SCALE, false);
     const blob = await new Promise(r=> c.toBlob(r,'image/png'));
     if(!blob) throw new Error('blob');
     const d = new Date(), pad = n=> String(n).padStart(2,'0');
