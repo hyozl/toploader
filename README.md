@@ -37,7 +37,7 @@ cd toploader
 
 Cloudflare Pages가 이 저장소에 연결되어 있어서, `main`에 올리면 1~2분 뒤 자동으로 배포돼요.
 
-- 대표 주소 (Cloudflare Pages): https://toploader-a7o.pages.dev/
+- 대표 주소 (Cloudflare Pages): https://oalive-topkku.pages.dev/
 - 예비 주소 (GitHub Pages): https://hyozl.github.io/toploader/
 
 Cloudflare Pages 설정: Framework preset **None**, Build command 비움, Build output directory `/`
@@ -68,4 +68,4 @@ Cloudflare Pages 설정: Framework preset **None**, Build command 비움, Build 
 
 ## 관련 링크
 
-- 배포 주소: https://toploader-a7o.pages.dev/
+- 배포 주소: https://oalive-topkku.pages.dev/
