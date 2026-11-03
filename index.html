@@ -269,7 +269,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         <button class="link" type="button" id="photoCenter">가운데로</button>
         <button class="link" type="button" id="photoRemove">사진 빼기</button>
       </div>
-      <p class="note">사진을 끌어 옮기고, 확대·회전은 위 막대로 조절해요. 두 손가락으로는 화면을 확대해 볼 수 있어요. 사진은 이 기기 밖으로 나가지 않아요.</p>
+      <p class="note">사진은 이 탭에서만 끌어 옮길 수 있어요. 다른 탭에서는 사진이 고정돼요. 사진은 이 기기 밖으로 나가지 않아요.</p>
     </div>
 
     <!-- 케이스 -->
@@ -1227,7 +1227,7 @@ cv.addEventListener('pointerdown', e=>{
   }
   const hadSel = !!selected;
   if(selected){ selected = null; syncUI(); draw(); }
-  if(images[state.photo.id]) drag = { mode:'photo', sx:p.x, sy:p.y, x0:state.photo.ox, y0:state.photo.oy, moved:false };
+  if(images[state.photo.id]){ if(curTab === 'photo') drag = { mode:'photo', sx:p.x, sy:p.y, x0:state.photo.ox, y0:state.photo.oy, moved:false }; }   // 사진은 사진 탭에서만 움직여요
   else if(inInner(p) && !hadSel && !state.items.length && !state.strokes.length) drag = { mode:'tap', sx:p.x, sy:p.y, moved:false };   // 아무것도 없는 빈 탑로더를 누를 때만 사진 고르기
 });
 cv.addEventListener('pointermove', e=>{
@@ -1269,7 +1269,7 @@ cv.addEventListener('lostpointercapture', e=>{ if(pts.has(e.pointerId)) endPoint
 function hoverCursor(p){
   if(isPiping()){ cv.style.cursor = 'crosshair'; return; }
   const sel = getSel();
-  let c = images[state.photo.id] ? 'grab' : (inInner(p) ? 'pointer' : 'default');
+  let c = images[state.photo.id] ? (curTab === 'photo' ? 'grab' : 'default') : (inInner(p) ? 'pointer' : 'default');
   if(hitItem(p)) c = 'move';
   if(sel){ const h = hitHandle(sel,p); if(h==='del') c='pointer'; if(h==='xf') c='nwse-resize'; }
   cv.style.cursor = c;
@@ -1302,7 +1302,7 @@ let wheelT = 0;
 cv.addEventListener('wheel', e=>{
   if(e.ctrlKey || e.metaKey){ e.preventDefault(); zoomAt(view.z * Math.exp(-e.deltaY*.01), e.clientX, e.clientY); return; }
   const sel = getSel();
-  if(!sel && !images[state.photo.id]) return;
+  if(!sel && !(images[state.photo.id] && curTab === 'photo')) return;
   e.preventDefault();
   const f = Math.exp(-e.deltaY*.0015);
   if(sel) sel.scale = clamp(sel.scale*f,.25,4);
