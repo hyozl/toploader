@@ -96,13 +96,17 @@ button{cursor:pointer}
   display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start;
 }
 .work{min-width:0;display:flex;flex-direction:column;align-items:center;gap:10px}
-.stage{position:relative;width:100%;height:calc(100dvh - 110px);min-height:440px;max-height:980px;display:flex;align-items:center;justify-content:center}
+.stage{position:relative;overflow:hidden;width:100%;height:calc(100dvh - 110px);min-height:440px;max-height:980px;display:flex;align-items:center;justify-content:center}
 .stage.drop::after{content:"";position:absolute;inset:8px;border:2px dashed var(--accent);border-radius:24px;pointer-events:none}
-#cv{display:block;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;filter:drop-shadow(0 16px 22px rgba(70,50,110,.12))}
+#cv{display:block;flex:none;will-change:transform;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;filter:drop-shadow(0 16px 22px rgba(70,50,110,.12))}
 .empty{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);text-align:center;white-space:nowrap;pointer-events:none;color:var(--muted);font-size:14px;line-height:1.6}
 .empty b{display:block;color:var(--ink);font-size:17px;font-weight:800}
 .resume{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);white-space:nowrap}
 .resume:active{transform:translate(-50%,3px)}
+.zoombar{position:absolute;right:max(6px,env(safe-area-inset-right,0px));top:6px;z-index:7;display:flex;flex-direction:column;gap:6px;align-items:center}
+.zoombar .zb{width:38px;height:38px;padding:0;border-radius:12px;font-size:20px;line-height:1;box-shadow:0 3px 0 var(--soft-shadow),0 4px 10px rgba(60,40,90,.12)}
+.zoombar .zb.fit{font-size:11.5px;font-weight:800;height:30px}
+.zoombar .zl{font-size:11px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;background:var(--bg);border-radius:8px;padding:1px 5px}
 .chip{position:absolute;left:50%;top:6px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:700;white-space:nowrap;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis}
 .selrow{display:flex;gap:8px;min-height:40px;align-items:center}
 .selrow .btn{padding:7px 14px;font-size:13px;border-radius:12px;box-shadow:0 3px 0 var(--soft-shadow)}
@@ -227,6 +231,12 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   <section class="work" aria-label="작업 영역">
     <div class="stage" id="stage">
       <canvas id="cv" aria-label="꾸미는 중인 탑로더"></canvas>
+      <div class="zoombar" aria-label="화면 확대">
+        <button class="btn zb" type="button" id="zoomInBtn" aria-label="확대">＋</button>
+        <span class="zl" id="zoomLabel">100%</span>
+        <button class="btn zb" type="button" id="zoomOutBtn" aria-label="축소">－</button>
+        <button class="btn zb fit" type="button" id="zoomFitBtn" aria-label="화면에 맞추기" hidden>맞춤</button>
+      </div>
       <div class="empty" id="emptyHint"><b>빈 탑로더예요</b>탑로더를 눌러 사진을 넣어요</div>
       <div class="chip" id="pipeChip" hidden>꾸욱 누르고 그어서 크림을 짜요</div>
       <button class="btn primary resume" id="resumeBtn" type="button" hidden>이전 작업 이어하기</button>
@@ -259,7 +269,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         <button class="link" type="button" id="photoCenter">가운데로</button>
         <button class="link" type="button" id="photoRemove">사진 빼기</button>
       </div>
-      <p class="note">사진을 끌어 옮기고, 휠이나 두 손가락으로 확대·회전해요. 사진은 이 기기 밖으로 나가지 않아요.</p>
+      <p class="note">사진을 끌어 옮기고, 확대·회전은 위 막대로 조절해요. 두 손가락으로는 화면을 확대해 볼 수 있어요. 사진은 이 기기 밖으로 나가지 않아요.</p>
     </div>
 
     <!-- 케이스 -->
@@ -1087,16 +1097,44 @@ const SFX = (()=>{
 
 const cv = $('cv'), ctx = cv.getContext('2d'), stage = $('stage');
 let viewScale = 1, cssW = 1;
-function fit(){
+/* 화면 확대·축소: 작업물은 그대로, 보는 크기만 바뀌어요 */
+const view = { z:1, x:0, y:0 }, ZMIN = 1, ZMAX = 5;
+let baseK = 1;
+function layoutView(sharp){
   const sw = stage.clientWidth - 8, sh = stage.clientHeight - 8;
-  const k = Math.min(sw/LW, sh/LH);
-  cssW = Math.max(100, Math.floor(LW*k));
-  const cssH = Math.floor(LH*k), dpr = Math.min(window.devicePixelRatio || 1, 3);
+  baseK = Math.min(sw/LW, sh/LH);
+  cssW = Math.max(100, Math.floor(LW*baseK*view.z));
+  const cssH = Math.floor(LH*baseK*view.z);
   cv.style.width = cssW+'px'; cv.style.height = cssH+'px';
-  cv.width = Math.round(cssW*dpr); cv.height = Math.round(cssH*dpr);
-  viewScale = cv.width / LW;
+  if(sharp){   // 손을 뗐을 때 선명하게 다시 그려요 (너무 커지지 않게 상한)
+    const dpr = Math.min(window.devicePixelRatio || 1, 3), d = Math.min(dpr, 4096/Math.max(cssW, cssH));
+    cv.width = Math.round(cssW*d); cv.height = Math.round(cssH*d);
+    viewScale = cv.width / LW;
+  }
+  // 탑로더가 화면 밖으로 다 나가지 않게
+  const mx = Math.max(0, (cssW - stage.clientWidth)/2 + 40), my = Math.max(0, (cssH - stage.clientHeight)/2 + 40);
+  if(view.z <= 1.001){ view.x = 0; view.y = 0; }
+  view.x = clamp(view.x, -mx, mx); view.y = clamp(view.y, -my, my);
+  cv.style.transform = `translate(${view.x}px, ${view.y}px)`;
+  $('zoomLabel').textContent = Math.round(view.z*100) + '%';
+  $('zoomFitBtn').hidden = view.z <= 1.001;
+  $('zoomOutBtn').disabled = view.z <= ZMIN + .001; $('zoomInBtn').disabled = view.z >= ZMAX - .001;
   draw();
 }
+function fit(){ layoutView(true); }
+// (cx, cy) 화면 지점을 기준으로 확대해요
+function zoomAt(z, cx, cy, sharp=true){
+  const r = stage.getBoundingClientRect();
+  if(cx == null){ cx = r.left + r.width/2; cy = r.top + r.height/2; }
+  const z0 = view.z; z = clamp(z, ZMIN, ZMAX); const k = z/z0;
+  const scx = r.left + r.width/2, scy = r.top + r.height/2;
+  const Cx = scx + view.x, Cy = scy + view.y;
+  view.x = (cx - (cx - Cx)*k) - scx; view.y = (cy - (cy - Cy)*k) - scy; view.z = z;
+  layoutView(sharp);
+}
+$('zoomInBtn').addEventListener('click', ()=> zoomAt(view.z * 1.5));
+$('zoomOutBtn').addEventListener('click', ()=> zoomAt(view.z / 1.5));
+$('zoomFitBtn').addEventListener('click', ()=>{ view.z = 1; view.x = 0; view.y = 0; layoutView(true); });
 let raf = 0;
 function draw(){ if(raf) return; raf = requestAnimationFrame(()=>{ raf=0; render(ctx, viewScale, 0, 0, true); }); }
 new ResizeObserver(fit).observe(stage);
@@ -1159,10 +1197,10 @@ function undo(){
   syncUI(); draw(); toast('되돌렸어요'); SFX.swoosh(.1); scheduleSave();
 }
 
-const pts = new Map(); let drag = null, pinch = null;
+const pts = new Map(), ptsC = new Map(); let drag = null, pinch = null;
 cv.addEventListener('pointerdown', e=>{
   cv.setPointerCapture(e.pointerId);
-  const p = toLogical(e); pts.set(e.pointerId, p);
+  const p = toLogical(e); pts.set(e.pointerId, p); ptsC.set(e.pointerId, { x:e.clientX, y:e.clientY });
   if(isPiping()){
     if(drag && drag.mode==='pipe') return;
     if(selected){ selected = null; syncUI(); }
@@ -1193,7 +1231,7 @@ cv.addEventListener('pointerdown', e=>{
 });
 cv.addEventListener('pointermove', e=>{
   const p = toLogical(e);
-  if(pts.has(e.pointerId)) pts.set(e.pointerId, p);
+  if(pts.has(e.pointerId)){ pts.set(e.pointerId, p); ptsC.set(e.pointerId, { x:e.clientX, y:e.clientY }); }
   if(pinch && pts.size>=2){ doPinch(); return; }
   if(!drag){ hoverCursor(p); return; }
   if(drag.mode==='tap'){ if(Math.hypot(p.x-drag.sx, p.y-drag.sy) > 20*LW/cssW) drag = null; return; }   // 손가락이 미끄러지면 사진 고르기 취소
@@ -1213,8 +1251,8 @@ cv.addEventListener('pointermove', e=>{
   drag.moved = true; draw();
 });
 function endPointer(e){
-  pts.delete(e.pointerId);
-  if(pinch){ if(pts.size<2){ if(pinch.moved) record(); pinch=null; } return; }
+  pts.delete(e.pointerId); ptsC.delete(e.pointerId);
+  if(pinch){ if(pts.size<2){ if(pinch.view) layoutView(true); else if(pinch.moved) record(); pinch=null; } return; }
   if(drag){
     if(drag.mode==='tap'){ drag = null; if(e.type==='pointerup' && performance.now() - (window.__pickAt||0) > 800){ window.__pickAt = performance.now(); $('fileIn').click(); } return; }
     if(drag.mode==='pipe') stopSqueeze();
@@ -1238,9 +1276,22 @@ function hoverCursor(p){
 function normRot(r){ r = ((r+180)%360+360)%360-180; return Math.abs(r)<3 ? 0 : Math.round(r); }
 function startPinch(){
   const [a,b] = [...pts.values()], sel = getSel();
+  if(!sel){   // 아무것도 선택하지 않았을 때 두 손가락 = 화면 확대·이동
+    const [ca, cb] = [...ptsC.values()];
+    pinch = { view:true, d0: Math.hypot(cb.x-ca.x, cb.y-ca.y) || 1, m0: { x:(ca.x+cb.x)/2, y:(ca.y+cb.y)/2 }, z0: view.z, x0: view.x, y0: view.y };
+    return;
+  }
   pinch = { d0:Math.hypot(b.x-a.x,b.y-a.y)||1, a0:Math.atan2(b.y-a.y,b.x-a.x), it:sel||null, s0: sel ? sel.scale : state.photo.zoom, r0: sel ? sel.rot : state.photo.rot, moved:false };
 }
 function doPinch(){
+  if(pinch.view){
+    const [ca, cb] = [...ptsC.values()], m = { x:(ca.x+cb.x)/2, y:(ca.y+cb.y)/2 };
+    view.z = pinch.z0; view.x = pinch.x0; view.y = pinch.y0;
+    const z = clamp(pinch.z0 * Math.hypot(cb.x-ca.x, cb.y-ca.y)/pinch.d0, ZMIN, ZMAX);
+    zoomAt(z, pinch.m0.x, pinch.m0.y, false);
+    view.x += m.x - pinch.m0.x; view.y += m.y - pinch.m0.y; layoutView(false);
+    return;
+  }
   const [a,b] = [...pts.values()], f = Math.hypot(b.x-a.x,b.y-a.y)/pinch.d0;
   if(pinch.it){ pinch.it.scale = clamp(pinch.s0*f,.25,4); pinch.it.rot = normRot(pinch.r0 + (Math.atan2(b.y-a.y,b.x-a.x)-pinch.a0)/DEG); }
   else if(images[state.photo.id]){ state.photo.zoom = clamp(pinch.s0*f,.5,4); state.photo.rot = normRot(pinch.r0 + (Math.atan2(b.y-a.y,b.x-a.x)-pinch.a0)/DEG); }
@@ -1248,6 +1299,7 @@ function doPinch(){
 }
 let wheelT = 0;
 cv.addEventListener('wheel', e=>{
+  if(e.ctrlKey || e.metaKey){ e.preventDefault(); zoomAt(view.z * Math.exp(-e.deltaY*.01), e.clientX, e.clientY); return; }
   const sel = getSel();
   if(!sel && !images[state.photo.id]) return;
   e.preventDefault();
