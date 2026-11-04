@@ -952,6 +952,67 @@ function stampsAlong(pts, tip, closed){
 }
 
 // 테두리 크림: 탑로더 테두리 가운데를 따라 짜기
+// 물결 크림: 테두리를 따라 안팎으로 구불구불 오가며 한 줄로 쭉 짠 크림
+function wavyRun(run, w){
+  const P = run.pts.slice(); if(run.closed) P.push(P[0]);
+  const cum = [0]; for(let i=1;i<P.length;i++) cum.push(cum[i-1] + Math.hypot(P[i][0]-P[i-1][0], P[i][1]-P[i-1][1]));
+  const L = cum[cum.length-1] || 1, cyc = Math.max(1, Math.round(L/(w*1.55))), A = w*.3, TAU = Math.PI*2, out = [];
+  for(let i=0;i<P.length;i++){
+    const u = cum[i]/L, j = Math.min(P.length-1, i+1), k = Math.max(0, i-1);
+    let tx = P[j][0]-P[k][0], ty = P[j][1]-P[k][1]; const tl = Math.hypot(tx,ty) || 1; tx/=tl; ty/=tl;
+    // 손으로 짠 듯 조금씩 불규칙하게 (닫힌 테두리도 이음매 없이 맞물리게 정수 주기만 써요)
+    const ph = TAU*cyc*u + .55*Math.sin(TAU*3*u) + .3*Math.sin(TAU*7*u + 1.3);
+    const amp = A*(1 + .18*Math.sin(TAU*5*u + 2) + .1*Math.sin(TAU*11*u));
+    const d = Math.sin(ph)*amp;
+    out.push([P[i][0] - ty*d, P[i][1] + tx*d, u]);
+  }
+  return out;
+}
+function creamRope(ctx, runs, w, shadesAt){
+  const lines = runs.map(r => ({ q: wavyRun(r, w), closed: r.closed }));
+  const tw = w*.68;   // 크림 굵기
+  const segs = [];   // 그라데이션 색을 따라가도록 조금씩 나눠 그려요
+  let total = 0; lines.forEach(l => total += l.q.length);
+  let acc = 0;
+  lines.forEach(l => {
+    const q = l.q, step = 6;
+    for(let i=0;i<q.length-1;i+=step){
+      const part = q.slice(i, Math.min(q.length, i+step+1)), u = (acc + i)/Math.max(1,total-1);
+      segs.push({ part, t: l.closed ? 1 - Math.abs(2*q[i][2]-1) : u });
+    }
+    acc += q.length;
+  });
+  const off = (part, o)=>{   // 크림 줄기 안에서 옆으로 o만큼 떨어진 결
+    ctx.beginPath();
+    part.forEach((p,i)=>{
+      const a = part[Math.min(part.length-1,i+1)], b = part[Math.max(0,i-1)];
+      let tx = a[0]-b[0], ty = a[1]-b[1]; const l = Math.hypot(tx,ty)||1; tx/=l; ty/=l;
+      const x = p[0] - ty*o, y = p[1] + tx*o; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+    });
+  };
+  const pass = (fn)=> segs.forEach(sg => { const cs = shadesAt(sg.t); fn(sg.part, cs); });
+  const line = (part, dx=0, dy=0)=>{ ctx.beginPath(); part.forEach((p,i)=> i ? ctx.lineTo(p[0]+dx,p[1]+dy) : ctx.moveTo(p[0]+dx,p[1]+dy)); };
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // 1) 그림자
+  ctx.shadowColor = 'rgba(55,35,65,.32)'; ctx.shadowBlur = Math.min(w*.28, 24); ctx.shadowOffsetX = Math.min(w*.05, 5); ctx.shadowOffsetY = Math.min(w*.12, 12);
+  pass((p,cs)=>{ ctx.strokeStyle = cs.dark; ctx.lineWidth = tw; line(p); ctx.stroke(); });
+  ctx.shadowColor = 'transparent';
+  // 2) 둥근 몸통: 왼쪽 위로 갈수록 밝게
+  pass((p,cs)=>{ ctx.strokeStyle = cs.base; ctx.lineWidth = tw*.82; line(p, -tw*.05, -tw*.07); ctx.stroke(); });
+  pass((p,cs)=>{ ctx.strokeStyle = cs.light; ctx.lineWidth = tw*.52; line(p, -tw*.1, -tw*.13); ctx.stroke(); });
+  // 3) 깍지 자국: 크림 줄기를 따라 흐르는 가는 결 (끊기지 않게 한 줄로)
+  const mid = shadesAt(.5);
+  lines.forEach(l => {
+    ctx.globalAlpha = .2; ctx.strokeStyle = mid.ridge; ctx.lineWidth = tw*.045;
+    off(l.q, tw*.2); ctx.stroke(); off(l.q, -tw*.02); ctx.stroke();
+    ctx.globalAlpha = .6; ctx.strokeStyle = '#fff'; ctx.lineWidth = tw*.06;
+    off(l.q, -tw*.12); ctx.stroke(); off(l.q, tw*.1); ctx.stroke();
+    // 4) 광택
+    ctx.globalAlpha = CREAM_GLOSS*.85; ctx.lineWidth = tw*.11; line(l.q, -tw*.2, -tw*.24); ctx.stroke();
+  });
+  ctx.restore(); ctx.globalAlpha = 1;
+  return lines;
+}
 let bCache = { key:'', v:[] };
 function borderStamps(){
   const c = state.cream, sz = c.style.size, key = JSON.stringify([c.edges, sz, c.style.tip]);
@@ -995,19 +1056,10 @@ function drawLayer(ctx, stamps, st, seed, base){
   const rope = base && stamps.length > 1 && (st.tip==='wave' || st.tip==='shell');   // 물결은 한 줄로 쭉 이어진 크림
   const runPath = (r, dx=0, dy=0)=>{ ctx.beginPath(); r.pts.forEach((q,i)=> i ? ctx.lineTo(q[0]+dx,q[1]+dy) : ctx.moveTo(q[0]+dx,q[1]+dy)); if(r.closed) ctx.closePath(); };
   if(rope){
-    const w = stamps[0].s, cs = shadesAt(.5);
-    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    // 그림자도 한 줄로 이어지게
-    ctx.shadowColor = 'rgba(55,35,65,.3)'; ctx.shadowBlur = Math.min(w*.3, 26); ctx.shadowOffsetX = Math.min(w*.05, 5); ctx.shadowOffsetY = Math.min(w*.12, 12);
-    ctx.strokeStyle = cs.dark; ctx.lineWidth = w*.92;
-    stamps.runs.forEach(r=>{ runPath(r); ctx.stroke(); });
-    ctx.shadowColor = 'transparent';
-    // 둥근 통 모양: 왼쪽 위로 갈수록 밝게
-    ctx.strokeStyle = cs.base; ctx.lineWidth = w*.72;
-    stamps.runs.forEach(r=>{ runPath(r, -w*.04, -w*.05); ctx.stroke(); });
-    ctx.strokeStyle = cs.light; ctx.lineWidth = w*.42;
-    stamps.runs.forEach(r=>{ runPath(r, -w*.08, -w*.1); ctx.stroke(); });
-    ctx.restore();
+    const w = stamps[0].s, lines = creamRope(ctx, stamps.runs, w, shadesAt), tops = [];
+    // 진주·스프링클은 구불구불한 크림 위에 올라가게
+    lines.forEach(l => { let d = 0; for(let i=1;i<l.q.length;i++){ d += Math.hypot(l.q[i][0]-l.q[i-1][0], l.q[i][1]-l.q[i-1][1]); if(d >= w*.8){ d = 0; tops.push({ x:l.q[i][0], y:l.q[i][1], s:w*.62, t:0 }); } } });
+    stamps = Object.assign(tops, { runs: stamps.runs });
   }
   // 1) 크림이 탑로더 위에 드리우는 그림자: 도톰하게 떠 보이게
   if(!rope) stamps.forEach(p=>{
@@ -1029,10 +1081,7 @@ function drawLayer(ctx, stamps, st, seed, base){
   }
   // 2) 크림 본체
   const one = (p,i) => drawStamp(ctx, st.tip, p.x, p.y, p.s/2, p.a, shadesAt(p.t ?? (n>1 ? i/(n-1) : 0)), (i*.9 + seed*1.7) % (Math.PI*2));
-  if(rope){   // 물결: 몸통을 모두 깐 뒤 소용돌이를 얹어서 색이 끊기지 않게
-    const each = f => stamps.forEach((p,i)=>{ ctx.save(); ctx.translate(p.x, p.y); f(ctx, p.s/2, shadesAt(p.t ?? (n>1 ? i/(n-1) : 0)), p.a); ctx.restore(); });
-    each(waveDome); each(waveSwirl);
-  } else stamps.forEach(one);
+  if(!rope) stamps.forEach(one);
   // 3) 토핑
   if(st.sprinkle) stamps.forEach((p,i) => sprinkles(ctx, p.x, p.y, p.s/2, (st.sprinkleSeed||0) + seed*131 + i*7 + 1));
   if(st.pearl) stamps.forEach((p,i) => {   // 진주: 자리·크기·개수를 불규칙하게 (매번 같은 모양으로 저장)
