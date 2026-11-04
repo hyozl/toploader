@@ -802,6 +802,10 @@ function isPiping(){ return false; }
 function activeStyle(){ return state.cream.style; }
 function clampPipe(p){ return [ Math.round(clamp(p.x, X0+6, X0+TW-6)*10)/10, Math.round(clamp(p.y, Y0+6, Y0+TH-6)*10)/10 ]; }
 
+// 물결 크림 색: 밝기에 따라 갑자기 바뀌지 않게 한 가지 규칙으로 (그라데이션이 끊기지 않게)
+function ropeShades(h){
+  return { light:mixW(h,.3), base:h, dark:shade(h,.8), deep:shade(h,.66), ridge:shade(h,.62), hi:mixW(h,.62) };
+}
 function creamShades(h){
   const [r,g,b] = hexRgb(h), lum = (r*.3+g*.59+b*.11)/255;
   return lum < .35
@@ -968,6 +972,14 @@ function wavyRun(run, w){
   return out;
 }
 function creamRope(ctx, lines, w, shadesAt){
+  let g = ctx;
+  // 반투명한 층: 불투명하게 따로 그린 다음 정해진 투명도로 한 번에 얹어요
+  const layer = (alpha, fn)=>{
+    const t = document.createElement('canvas'); t.width = ctx.canvas.width; t.height = ctx.canvas.height;
+    const x = t.getContext('2d'); x.setTransform(ctx.getTransform()); x.lineCap = g.lineCap; x.lineJoin = 'round';
+    g = x; fn(); g = ctx;
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha = alpha; ctx.drawImage(t, 0, 0); ctx.restore();
+  };
   const tw = w*.9, TAU = Math.PI*2;   // 크림 굵기
   const segs = [];   // 그라데이션 색을 따라가도록 조금씩 나눠 그려요
   let total = 0; lines.forEach(l => total += l.q.length);
@@ -981,45 +993,41 @@ function creamRope(ctx, lines, w, shadesAt){
     acc += q.length;
   });
   const pass = fn => segs.forEach(sg => fn(sg.part, sg.cs));
-  const line = (part, dx=0, dy=0)=>{ ctx.beginPath(); part.forEach((p,i)=> i ? ctx.lineTo(p[0]+dx,p[1]+dy) : ctx.moveTo(p[0]+dx,p[1]+dy)); };
-  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const line = (part, dx=0, dy=0)=>{ g.beginPath(); part.forEach((p,i)=> i ? g.lineTo(p[0]+dx,p[1]+dy) : g.moveTo(p[0]+dx,p[1]+dy)); };
+  g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
   // 1) 그림자: 줄 전체를 한 번에 (조각마다 그리면 느려요)
-  ctx.shadowColor = 'rgba(55,35,65,.14)'; ctx.shadowBlur = Math.min(w*.18, 14); ctx.shadowOffsetX = Math.min(w*.02, 2); ctx.shadowOffsetY = Math.min(w*.06, 5);
-  ctx.strokeStyle = shadesAt(.5).dark; ctx.lineWidth = tw;
-  lines.forEach(l => { line(l.q); if(l.closed) ctx.closePath(); ctx.stroke(); });
-  ctx.shadowColor = 'transparent';
+  g.shadowColor = 'rgba(55,35,65,.14)'; g.shadowBlur = Math.min(w*.18, 14); g.shadowOffsetX = Math.min(w*.02, 2); g.shadowOffsetY = Math.min(w*.06, 5);
+  g.strokeStyle = shadesAt(.5).dark; g.lineWidth = tw;
+  lines.forEach(l => { line(l.q); if(l.closed) g.closePath(); g.stroke(); });
+  g.shadowColor = 'transparent';
   // 2) 둥근 몸통: 가장자리에서 왼쪽 위 꼭대기로 갈수록 조금씩 밝게
-  pass((p,cs)=>{ ctx.strokeStyle = cs.dark;  ctx.lineWidth = tw;     line(p); ctx.stroke(); });
-  pass((p,cs)=>{ ctx.strokeStyle = cs.base;  ctx.lineWidth = tw*.9;  line(p, -tw*.03, -tw*.04); ctx.stroke(); });
-  pass((p,cs)=>{ ctx.strokeStyle = cs.light; ctx.lineWidth = tw*.66; line(p, -tw*.07, -tw*.09); ctx.stroke(); });
-  ctx.globalAlpha = .55;
-  pass((p,cs)=>{ ctx.strokeStyle = cs.hi;    ctx.lineWidth = tw*.4;  line(p, -tw*.11, -tw*.14); ctx.stroke(); });
+  pass((p,cs)=>{ g.strokeStyle = cs.dark;  g.lineWidth = tw;     line(p); g.stroke(); });
+  pass((p,cs)=>{ g.strokeStyle = cs.base;  g.lineWidth = tw*.9;  line(p, -tw*.03, -tw*.04); g.stroke(); });
+  pass((p,cs)=>{ g.strokeStyle = cs.light; g.lineWidth = tw*.66; line(p, -tw*.07, -tw*.09); g.stroke(); });
+  // 반투명한 층은 따로 그린 뒤 한 번에 얹어요 (조각끼리 겹친 곳이 얼룩지지 않게)
+  layer(.4, ()=> pass((p,cs)=>{ g.strokeStyle = cs.hi; g.lineWidth = tw*.4; line(p, -tw*.11, -tw*.14); g.stroke(); }));
   // 3) 깍지 결: 넓고 흐릿한 골이 살짝씩 흔들리며 나타났다 사라져요
-  const sh = (q, o, k, dx, dy)=>{ ctx.beginPath(); q.forEach((p,i)=>{ const oo = o + tw*.03*Math.sin(TAU*k*p[2] + o*.3), x = p[0] + p[4]*oo + dx, y = p[1] + p[5]*oo + dy; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }); };
-  ctx.lineCap = 'butt';
-  [[-.26, 9], [-.05, 13], [.17, 11]].forEach(([g, k]) => {
-    const o = g*tw;
-    ctx.globalAlpha = .1;
-    pass((p,cs)=>{ ctx.strokeStyle = cs.ridge; ctx.lineWidth = tw*.09; sh(p, o, k, tw*.02, tw*.03); ctx.stroke(); });
-    ctx.globalAlpha = .35;
-    pass((p,cs)=>{ ctx.strokeStyle = cs.hi; ctx.lineWidth = tw*.06; sh(p, o, k, -tw*.03, -tw*.04); ctx.stroke(); });
-  });
-  ctx.globalAlpha = 1; ctx.lineCap = 'round';
+  const sh = (q, o, k, dx, dy)=>{ g.beginPath(); q.forEach((p,i)=>{ const oo = o + tw*.03*Math.sin(TAU*k*p[2] + o*.3), x = p[0] + p[4]*oo + dx, y = p[1] + p[5]*oo + dy; i ? g.lineTo(x,y) : g.moveTo(x,y); }); };
+  g.lineCap = 'butt';
+  const GR = [[-.26, 9], [-.05, 13], [.17, 11]];
+  layer(.1, ()=> GR.forEach(([gg, k]) => pass((p,cs)=>{ g.strokeStyle = cs.ridge; g.lineWidth = tw*.09; sh(p, gg*tw, k, tw*.02, tw*.03); g.stroke(); })));
+  layer(.35, ()=> GR.forEach(([gg, k]) => pass((p,cs)=>{ g.strokeStyle = cs.hi; g.lineWidth = tw*.06; sh(p, gg*tw, k, -tw*.03, -tw*.04); g.stroke(); })));
+  g.lineCap = 'round';
   // 4) 볼록한 꼭대기마다 반짝임
-  ctx.fillStyle = '#fff';
+  g.fillStyle = '#fff';
   lines.forEach(l => {
     const q = l.q;
     for(let i=1;i<q.length-1;i++){
       const v = q[i][3];
       if(Math.abs(v) < .97 || Math.abs(v) < Math.abs(q[i-1][3]) || Math.abs(v) < Math.abs(q[i+1][3])) continue;
       const sg = Math.sign(v), nx = q[i][4]*sg, ny = q[i][5]*sg, ang = Math.atan2(q[i+1][1]-q[i-1][1], q[i+1][0]-q[i-1][0]);
-      ctx.globalAlpha = CREAM_GLOSS;
-      ctx.beginPath(); ctx.ellipse(q[i][0] + nx*tw*.12 - tw*.1, q[i][1] + ny*tw*.12 - tw*.12, tw*.14, tw*.06, ang, 0, Math.PI*2); ctx.fill();
-      ctx.globalAlpha = .8;
-      ctx.beginPath(); ctx.arc(q[i][0] + nx*tw*.1 - tw*.16, q[i][1] + ny*tw*.1 - tw*.15, tw*.025, 0, Math.PI*2); ctx.fill();
+      g.globalAlpha = CREAM_GLOSS;
+      g.beginPath(); g.ellipse(q[i][0] + nx*tw*.12 - tw*.1, q[i][1] + ny*tw*.12 - tw*.12, tw*.14, tw*.06, ang, 0, Math.PI*2); g.fill();
+      g.globalAlpha = .8;
+      g.beginPath(); g.arc(q[i][0] + nx*tw*.1 - tw*.16, q[i][1] + ny*tw*.1 - tw*.15, tw*.025, 0, Math.PI*2); g.fill();
     }
   });
-  ctx.restore(); ctx.globalAlpha = 1;
+  g.restore(); g.globalAlpha = 1;
 }
 // 물결 크림은 한 번 그려 두고 다시 써요 (움직일 때마다 새로 그리면 버벅여요)
 let ropeCache = { key:'', cv:null, lines:null };
@@ -1076,8 +1084,9 @@ function borderStamps(){
 }
 let SEAM = 1;
 function drawLayer(ctx, stamps, st, seed, base){
-  const solid = st.grad ? null : creamShades(st.color), cache = {};
-  const shadesAt = t => { if(solid) return solid; const k = Math.round(t*32); return cache[k] || (cache[k] = creamShades(mixHex(st.color, st.color2 || st.color, k/32))); };
+  const SH = (st.tip==='wave' || st.tip==='shell') && base ? ropeShades : creamShades;
+  const solid = st.grad ? null : SH(st.color), cache = {};
+  const shadesAt = t => { if(solid) return solid; const k = Math.round(t*48); return cache[k] || (cache[k] = SH(mixHex(st.color, st.color2 || st.color, k/48))); };
   const n = stamps.length;
   const rope = base && stamps.length > 1 && (st.tip==='wave' || st.tip==='shell');   // 물결은 한 줄로 쭉 이어진 크림
   const runPath = (r, dx=0, dy=0)=>{ ctx.beginPath(); r.pts.forEach((q,i)=> i ? ctx.lineTo(q[0]+dx,q[1]+dy) : ctx.moveTo(q[0]+dx,q[1]+dy)); if(r.closed) ctx.closePath(); };
