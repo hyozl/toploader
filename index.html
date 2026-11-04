@@ -108,8 +108,6 @@ button{cursor:pointer}
 #cv{display:block;flex:none;position:relative;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;filter:drop-shadow(0 16px 22px rgba(70,50,110,.12))}
 .empty{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);text-align:center;white-space:nowrap;pointer-events:none;color:var(--muted);font-size:14px;line-height:1.6}
 .empty b{display:block;color:var(--ink);font-size:17px;font-weight:800}
-.resume{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);white-space:nowrap}
-.resume:active{transform:translate(-50%,3px)}
 .zoombar{position:absolute;right:max(6px,env(safe-area-inset-right,0px));top:6px;z-index:7;display:flex;flex-direction:column;gap:6px;align-items:center}
 .zoombar .zb{width:38px;height:38px;padding:0;border-radius:12px;font-size:20px;line-height:1;box-shadow:0 3px 0 var(--soft-shadow),0 4px 10px rgba(60,40,90,.12)}
 .zoombar .zb.fit{font-size:11.5px;font-weight:800;height:30px}
@@ -222,7 +220,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   .pane{padding-top:12px;gap:14px}
   .textin input,.hexrow input{font-size:16px}   /* 아이폰에서 입력할 때 화면이 확대되지 않게 */
   .stickers{grid-template-columns:repeat(5,1fr)}
-  .resume{bottom:12%}
   html,body{overscroll-behavior:none}                  /* 당겨서 새로고침 막기 */
   #undoBtn{display:none}                                /* 휴대폰은 작업대 왼쪽 위 ↶ 버튼으로 */
   .sw{width:38px;height:38px}                           /* 손가락으로 누르기 편하게 */
@@ -249,7 +246,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
     <button class="btn small icon" id="soundBtn" type="button" aria-label="효과음" aria-pressed="true" title="효과음 켜기/끄기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
     <button class="btn small" id="resetBtn" type="button">다시 만들기</button>
     <button class="btn small" id="undoBtn" type="button" disabled>되돌리기</button>
-    <button class="btn primary" id="saveBtn" type="button">PNG 저장</button>
+    <button class="btn primary" id="saveBtn" type="button">저장</button>
   </div>
 </header>
 
@@ -268,7 +265,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         <button class="btn zb fit" type="button" id="zoomFitBtn" aria-label="화면에 맞추기" hidden>맞춤</button>
       </div>
       <div class="empty" id="emptyHint"><b>빈 탑로더예요</b>탑로더를 눌러 사진을 넣어요</div>
-      <button class="btn primary resume" id="resumeBtn" type="button" hidden>이전 작업 이어하기</button>
     </div>
     <div class="selrow" id="selRow" hidden>
       <button class="btn" type="button" id="selFlip">좌우 반전</button>
@@ -1349,20 +1345,20 @@ function record(){
   if(undoStack[undoStack.length-1] === s) return;
   undoStack.push(s); if(undoStack.length > 80) undoStack.shift();
   redoStack.length = 0;
-  syncUI(); scheduleSave();
+  syncUI();
 }
 function redo(){
   if(!redoStack.length) return;
   const s = redoStack.pop(); undoStack.push(s); state = JSON.parse(s);
   if(!getSel()) selected = null;
-  syncUI(); draw(); toast('다시 실행했어요'); scheduleSave();
+  syncUI(); draw(); toast('다시 실행했어요');
 }
 function undo(){
   if(undoStack.length < 2) return;
   redoStack.push(undoStack.pop());
   state = JSON.parse(undoStack[undoStack.length-1]);
   if(!getSel()) selected = null;
-  syncUI(); draw(); toast('되돌렸어요'); SFX.swoosh(.1); scheduleSave();
+  syncUI(); draw(); toast('되돌렸어요'); SFX.swoosh(.1);
 }
 
 const pts = new Map(), ptsC = new Map(); let drag = null, pinch = null;
@@ -2171,60 +2167,11 @@ $('modalClose').addEventListener('click', closeModal);
 $('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
 $('saveBtn').addEventListener('click', savePNG);
 
-/* =========================================================
-   자동 저장: 새로고침하거나 창을 닫아도 이 기기에서 이어서 할 수 있게
-   (사진은 이 브라우저 저장공간에만 남고 밖으로 나가지 않아요)
-   ========================================================= */
-const SAVE_KEY = 'tg_work_v1';
-const urlCache = {};
-let saveT = 0, saveReady = false;
-function canvasURL(id, cv){
-  if(urlCache[id]) return urlCache[id];
-  let url = '';
-  try{ url = cv.toDataURL('image/webp', .95); if(!url.startsWith('data:image/webp')) url = cv.toDataURL('image/jpeg', .93); }catch(_){}
-  return urlCache[id] = url;
-}
-function scheduleSave(){ if(!saveReady) return; clearTimeout(saveT); saveT = setTimeout(saveWork, 900); }
-function saveWork(){
-  try{
-    if(JSON.stringify(state) === INITIAL){ localStorage.removeItem(SAVE_KEY); return; }
-    const usedParts = new Set(state.items.filter(i => i.type === 'sticker').map(i => i.sid));
-    const parts = myStickers.filter(m => usedParts.has(m.id)).map(m => ({ id: m.id, src: m.src }));
-    const photo = images[state.photo.id] ? { id: state.photo.id, src: canvasURL(state.photo.id, images[state.photo.id]) } : null;
-    const data = { v:1, uid, state, photo, parts, at: Date.now() };
-    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }
-    catch(_){
-      // 공간이 모자라면 사진을 조금 더 압축해서, 그래도 안 되면 사진만 빼고 저장
-      try{ if(data.photo){ data.photo.src = images[state.photo.id].toDataURL('image/webp', .8); } localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }
-      catch(__){ data.photo = null; localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }
-    }
-    $('resumeBtn').hidden = true;
-  }catch(_){}
-}
-function loadImg(src){ return new Promise((ok, no)=>{ const im = new Image(); im.onload = ()=>{ const c = newCanvas(im.naturalWidth, im.naturalHeight); c.getContext('2d').drawImage(im,0,0); ok(c); }; im.onerror = no; im.src = src; }); }
-async function resumeWork(){
-  let data = null; try{ data = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); }catch(_){}
-  if(!data || !data.state){ $('resumeBtn').hidden = true; return; }
-  try{
-    if(data.photo && data.photo.src){ images[data.photo.id] = await loadImg(data.photo.src); urlCache[data.photo.id] = data.photo.src; }
-    else if(data.state.photo && data.state.photo.id){ data.state.photo = { id:null, zoom:1, ox:0, oy:0, rot:0 }; }
-    for(const m of (data.parts || [])){
-      if(stickerImgs[m.id]) continue;
-      stickerImgs[m.id] = await loadImg(m.src); myStickers.push({ id: m.id, src: m.src });
-    }
-    data.state.items = data.state.items.filter(i => i.type !== 'sticker' || stickerImgs[i.sid]);
-    data.state.strokes = [];
-    state = data.state; uid = Math.max(uid, data.uid || 0) + 1; selected = null;
-    renderStickerGrid(); record(); syncUI(); draw(); $('resumeBtn').hidden = true;
-    toast(data.photo || !(data.state.photo && data.state.photo.id) ? '이전 작업을 불러왔어요' : '이전 작업을 불러왔어요 · 사진은 다시 넣어주세요');
-  }catch(_){ toast('이전 작업을 불러오지 못했어요'); $('resumeBtn').hidden = true; }
-}
-$('resumeBtn').addEventListener('click', resumeWork);
-try{ const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if(d && d.state) $('resumeBtn').hidden = false; }catch(_){}
+// 예전에 자동 저장해 둔 작업(사진 포함)이 남아 있으면 지워요
+try{ localStorage.removeItem('tg_work_v1'); }catch(_){}
 
 /* 시작: 빈 탑로더 */
 record();
-saveReady = true;
 syncUI();
 fit();
 if(document.fonts){ document.fonts.ready.then(draw); document.fonts.addEventListener && document.fonts.addEventListener('loadingdone', draw);
