@@ -20,7 +20,7 @@
 <body>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&family=Gaegu:wght@700&family=Gowun+Dodum&family=Jua&family=Black+Han+Sans&family=Dongle:wght@700&family=Single+Day&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&family=Jua&family=Black+Han+Sans&display=swap">
 <style>
 /* 레이아웃: 크림 바탕 위에 탑로더 하나만 크게. 도구는 연보라 시트 한 장(PC 오른쪽, 모바일 아래) */
 :root{
@@ -455,14 +455,10 @@ const CASE_COLORS = [
   { c:'#c9b4f4', name:'연보라' }, { c:'#ffb8cf', name:'핑크' }, { c:'#a9d4ff', name:'하늘' },
   { c:'#a8e6c4', name:'민트' }, { c:'#3a3346', name:'블랙' },
 ];
-const TEXT_COLORS = ['#ffffff','#3d3550','#a98be8','#ff7aa2','#ff9a5c','#f5c542','#5cc28a','#5aa7f0'];
+const TEXT_COLORS = ['#ffffff','#1e1a22'];   // 흰색, 검정
 const FONTS = [
   { id:'jua', name:'동글', family:'"Jua"', weight:400 },
-  { id:'gaegu', name:'손글씨', family:'"Gaegu"', weight:700 },
-  { id:'dodum', name:'단정', family:'"Gowun Dodum"', weight:400 },
   { id:'blackhan', name:'굵게', family:'"Black Han Sans"', weight:400 },
-  { id:'dongle', name:'말랑', family:'"Dongle"', weight:700, size:1.45 },   // 글자가 작게 그려지는 글꼴이라 키워서 맞춤
-  { id:'singleday', name:'콩콩', family:'"Single Day"', weight:400 },
 ];
 const FONT_FALLBACK = ',"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
 const STICKER_BASE = 140, TEXT_BASE = 58, LETTER_SP = .08;   // 글자 사이 간격 (글씨 크기 대비)
