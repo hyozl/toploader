@@ -576,7 +576,7 @@ function itemSize(it){
     return { w: s*iw/m, h: s*ih/m };
   }
   mctx.font = fontStr(it);
-  const fs = TEXT_BASE*it.scale, ow = it.outline ? fs*.28 : 0;
+  const fs = TEXT_BASE*it.scale, ow = it.outline ? fs*.14 : 0;
   const sp = fs*LETTER_SP*Math.max(0, Array.from(it.text).length-1);
   return { w: mctx.measureText(it.text).width + sp + ow*1.15 + 8 + fs*.12, h: fs*1.18 + ow*1.15 + fs*.22 };
 }
@@ -722,14 +722,14 @@ function drawText3D(ctx, it, S){
   const each = (fn, x, y)=>{ let cx = x - total/2; chars.forEach((c,i)=>{ ctx[fn](c, cx, y); cx += ws[i] + sp; }); };
   const isWhite = hexRgb(col).every(v => v > 235);
   const oc = isWhite ? '#5a4f6e' : '#ffffff';            // 테두리 색
-  const ow = it.outline ? fs*.28 : 0;
+  const ow = it.outline ? fs*.14 : 0;
   const body = it.outline ? oc : col;
   const depth = Math.max(4, Math.round(fs*.15)), step = fs*.15/depth;   // 글씨 두께 (글씨 크기의 15%)
   // 1) 바닥 그림자 + 두께(옆면): 뒤쪽은 진하게, 앞쪽은 조금 밝게
   for(let i=depth;i>=1;i--){
     const [x, y] = loc(i*step*.5, i*step), k = i/depth;
     const side = isWhite && !it.outline ? shade('#ffffff', .82 - k*.2) : shade(body, .78 - k*.26);
-    if(i===depth){ ctx.shadowColor = 'rgba(45,25,55,.28)'; ctx.shadowBlur = 6*S*it.scale; ctx.shadowOffsetY = 4*S*it.scale; ctx.shadowOffsetX = 1*S*it.scale; }
+    if(i===depth){ ctx.shadowColor = 'rgba(45,25,55,.12)'; ctx.shadowBlur = 3*S*it.scale; ctx.shadowOffsetY = 1.6*S*it.scale; ctx.shadowOffsetX = .5*S*it.scale; }
     ctx.fillStyle = side; ctx.strokeStyle = side;
     if(ow){ ctx.lineWidth = ow; each('strokeText', x, y0+y); }
     each('fillText', x, y0+y);
