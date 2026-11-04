@@ -925,7 +925,7 @@ function sprinkles(ctx, x, y, r, seed){
     ctx.beginPath(); ctx.moveTo(px-Math.cos(a)*l, py-Math.sin(a)*l); ctx.lineTo(px+Math.cos(a)*l, py+Math.sin(a)*l); ctx.stroke();
   }
 }
-function tipSpacing(tip, size){ const r = size/2; return tip==='star' ? r*1.22 : (tip==='wave' || tip==='shell') ? r*.95 : r*1.25; }
+function tipSpacing(tip, size){ const r = size/2; return tip==='star' ? r*1.22 : (tip==='wave' || tip==='shell') ? r*.72 : r*1.25; }
 
 // 선을 따라 크림 한 덩이씩 놓을 자리 계산. 각 점은 [x, y, 굵기]
 function stampsAlong(pts, tip, closed){
@@ -996,19 +996,37 @@ function borderStamps(){
   bCache = { key, v:out };
   return out;
 }
+let SEAM = 1;
 function drawLayer(ctx, stamps, st, seed, base){
   const solid = st.grad ? null : creamShades(st.color), cache = {};
   const shadesAt = t => { if(solid) return solid; const k = Math.round(t*32); return cache[k] || (cache[k] = creamShades(mixHex(st.color, st.color2 || st.color, k/32))); };
   const n = stamps.length;
+  const rope = base && stamps.length > 1 && (st.tip==='wave' || st.tip==='shell');   // 물결은 한 줄로 쭉 이어진 크림
+  const runPath = (r, dx=0, dy=0)=>{ ctx.beginPath(); r.pts.forEach((q,i)=> i ? ctx.lineTo(q[0]+dx,q[1]+dy) : ctx.moveTo(q[0]+dx,q[1]+dy)); if(r.closed) ctx.closePath(); };
+  if(rope){
+    const w = stamps[0].s, cs = shadesAt(.5);
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // 그림자도 한 줄로 이어지게
+    ctx.shadowColor = 'rgba(55,35,65,.3)'; ctx.shadowBlur = Math.min(w*.3, 26); ctx.shadowOffsetX = Math.min(w*.05, 5); ctx.shadowOffsetY = Math.min(w*.12, 12);
+    ctx.strokeStyle = cs.dark; ctx.lineWidth = w*.92;
+    stamps.runs.forEach(r=>{ runPath(r); ctx.stroke(); });
+    ctx.shadowColor = 'transparent';
+    // 둥근 통 모양: 왼쪽 위로 갈수록 밝게
+    ctx.strokeStyle = cs.base; ctx.lineWidth = w*.72;
+    stamps.runs.forEach(r=>{ runPath(r, -w*.04, -w*.05); ctx.stroke(); });
+    ctx.strokeStyle = cs.light; ctx.lineWidth = w*.42;
+    stamps.runs.forEach(r=>{ runPath(r, -w*.08, -w*.1); ctx.stroke(); });
+    ctx.restore();
+  }
   // 1) 크림이 탑로더 위에 드리우는 그림자: 도톰하게 떠 보이게
-  stamps.forEach(p=>{
+  if(!rope) stamps.forEach(p=>{
     const r = p.s/2, off = Math.min(r*.48, 14), rad = Math.min(r*1.35, r+16), cx = p.x + off*.45, cy = p.y + off;
     const g = ctx.createRadialGradient(cx, cy, r*.2, cx, cy, rad);
     g.addColorStop(0,'rgba(55,35,65,.28)'); g.addColorStop(1,'rgba(55,35,65,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2); ctx.fill();
   });
   // 1-2) 테두리 크림의 바닥 크림: 덩어리 사이 틈을 메워서 탑로더 테두리가 비치지 않게
-  if(base && stamps.length > 1){
+  if(base && stamps.length > 1 && !rope){
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     // 그라데이션이면 중간 색으로, 아니면 크림 색의 그늘 톤으로 테두리 경로를 따라 굵게 칠해요
     ctx.strokeStyle = shadesAt(.5).dark; ctx.lineWidth = stamps[0].s*.8;
@@ -1019,7 +1037,10 @@ function drawLayer(ctx, stamps, st, seed, base){
     ctx.restore();
   }
   // 2) 크림 본체
-  stamps.forEach((p,i) => drawStamp(ctx, st.tip, p.x, p.y, p.s/2, p.a, shadesAt(p.t ?? (n>1 ? i/(n-1) : 0)), (i*.9 + seed*1.7) % (Math.PI*2)));
+  const one = (p,i) => drawStamp(ctx, st.tip, p.x, p.y, p.s/2, p.a, shadesAt(p.t ?? (n>1 ? i/(n-1) : 0)), (i*.9 + seed*1.7) % (Math.PI*2));
+  stamps.forEach(one);
+  // 한 바퀴 이어진 물결: 처음 몇 덩어리를 마지막 덩어리 위에 다시 얹어 이음매 없이 이어지게
+  if(rope && stamps.runs.some(r=>r.closed) && n > 6) for(let i=0;i<4;i++) one(stamps[i], i);
   // 3) 토핑
   if(st.sprinkle) stamps.forEach((p,i) => sprinkles(ctx, p.x, p.y, p.s/2, (st.sprinkleSeed||0) + seed*131 + i*7 + 1));
   if(st.pearl) stamps.forEach((p,i) => {   // 진주: 자리·크기·개수를 불규칙하게 (매번 같은 모양으로 저장)
