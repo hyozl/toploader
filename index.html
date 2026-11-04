@@ -206,6 +206,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .done{font-size:16px;font-weight:800;line-height:1.55;color:var(--ink)}
 .done b{color:var(--accent)}
 .dialog .note{text-align:center}
+.inapp{position:absolute;left:8px;right:8px;bottom:8px;z-index:8;display:flex;align-items:center;gap:8px;background:var(--ink);color:var(--bg);border-radius:16px;padding:10px 10px 10px 14px;box-shadow:0 8px 24px rgba(30,22,45,.25);font-size:13px;line-height:1.45;word-break:keep-all}
+.inapp[hidden]{display:none}
+.inapp p{margin:0;flex:1}
+.inapp .btn{flex:none;padding:8px 12px;font-size:13px}
+.inapp .x{flex:none;border:0;background:none;color:inherit;font-size:16px;padding:4px 6px;cursor:pointer;opacity:.7}
 .toast{white-space:pre-line;word-break:keep-all;line-height:1.5;position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13px;z-index:60;max-width:calc(100% - 32px);text-align:center}
 
 @media (max-width:480px){ .top h1{font-size:13px;gap:5px;flex:1 1 auto;min-width:0;line-height:1.25} .top h1 .logo{height:17px} .btn.small{padding:6px 7px;font-size:12px} .btn.small.icon{padding:6px 7px} .top .actions{gap:5px} .top .actions .btn.primary{padding:8px 12px;font-size:13px} }
@@ -266,6 +271,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         <span class="zl" id="zoomLabel">100%</span>
         <button class="btn zb" type="button" id="zoomOutBtn" aria-label="축소">－</button>
         <button class="btn zb fit" type="button" id="zoomFitBtn" aria-label="화면에 맞추기" hidden>맞춤</button>
+      </div>
+      <div class="inapp" id="inapp" role="alert" hidden>
+        <p id="inappMsg"></p>
+        <button class="btn primary" type="button" id="inappOpen" hidden>브라우저로 열기</button>
+        <button class="x" type="button" id="inappClose" aria-label="닫기">✕</button>
       </div>
       <div class="empty" id="emptyHint"><b>빈 탑로더예요</b>탑로더를 눌러 사진을 넣어요</div>
     </div>
@@ -386,6 +396,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
     <div class="dlgbtns">
       <button class="btn primary" type="button" id="shareBtn" hidden>사진 저장 · 공유</button>
       <button class="btn" type="button" id="dlBtn" hidden>파일로 저장</button>
+      <button class="btn" type="button" id="inappOpen2" hidden>브라우저로 열기</button>
       <button class="btn" type="button" id="modalClose">닫기</button>
     </div>
   </div>
@@ -817,7 +828,7 @@ const CREAM_GLOSS = .42;   // 크림 광택 세기 (0~1)
 function specular(ctx, x, y, rx, ry, a=CREAM_GLOSS){ ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, -.6, 0, Math.PI*2); ctx.fill(); }
 function drawStamp(ctx, tip, x, y, r, ang, cs, rot){
   ctx.save(); ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(60,38,70,.2)';   // 옆 크림과 맞닿는 곳의 그늘
+  ctx.fillStyle = 'rgba(60,38,70,.09)';   // 옆 크림과 맞닿는 곳의 그늘 (은은하게)
   if(tip==='shell') tip = 'wave';   // 예전 조개 모양은 물결로
   if(tip==='wave'){ ctx.fillStyle = 'rgba(60,38,70,.08)'; ctx.beginPath(); ctx.ellipse(r*.05, r*.12, r*1.05, r*.6, ang, 0, Math.PI*2); ctx.fill(); }
   else { ctx.beginPath(); ctx.ellipse(r*.05, r*.22, r*.98, r*.9, 0, 0, Math.PI*2); ctx.fill(); }
@@ -1093,9 +1104,9 @@ function drawLayer(ctx, stamps, st, seed, base){
   }
   // 1) 크림이 탑로더 위에 드리우는 그림자: 도톰하게 떠 보이게
   if(!rope) stamps.forEach(p=>{
-    const r = p.s/2, off = Math.min(r*.48, 14), rad = Math.min(r*1.35, r+16), cx = p.x + off*.45, cy = p.y + off;
+    const r = p.s/2, off = Math.min(r*.22, 6), rad = Math.min(r*1.18, r+9), cx = p.x + off*.3, cy = p.y + off;
     const g = ctx.createRadialGradient(cx, cy, r*.2, cx, cy, rad);
-    g.addColorStop(0,'rgba(55,35,65,.28)'); g.addColorStop(1,'rgba(55,35,65,0)');
+    g.addColorStop(0,'rgba(55,35,65,.13)'); g.addColorStop(1,'rgba(55,35,65,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2); ctx.fill();
   });
   // 1-2) 테두리 크림의 바닥 크림: 덩어리 사이 틈을 메워서 탑로더 테두리가 비치지 않게
@@ -2138,6 +2149,27 @@ async function savePNG(){
   }catch(_){ toast('이미지를 만들지 못했어요. 다시 눌러주세요'); }
   finally{ btn.disabled = false; }
 }
+/* 카톡·인스타 같은 앱 안 브라우저: 사진 저장이 막히는 경우가 많아서 바깥 브라우저로 안내해요 */
+const UA = navigator.userAgent || '';
+const IN_APP = (()=>{
+  const list = [[/KAKAOTALK/i,'카카오톡'],[/Instagram/i,'인스타그램'],[/FBAN|FBAV|FB_IAB/i,'페이스북'],[/NAVER\(inapp/i,'네이버 앱'],[/\bLine\//i,'라인'],[/everytimeApp/i,'에브리타임'],[/DaumApps/i,'다음 앱'],[/Twitter/i,'X(트위터)'],[/Snapchat/i,'스냅챗'],[/BAND\//i,'밴드']];
+  const hit = list.find(([re]) => re.test(UA)); return hit ? hit[1] : '';
+})();
+const IS_KAKAO = /KAKAOTALK/i.test(UA), IS_ANDROID = /Android/i.test(UA);
+function canOpenExternal(){ return IS_KAKAO || IS_ANDROID; }
+function openExternal(){
+  const url = location.href;
+  if(IS_KAKAO) location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
+  else if(IS_ANDROID) location.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end';
+}
+function inAppHow(){ return /iPhone|iPad|iPod/i.test(UA) ? '오른쪽 위나 아래의 ··· 메뉴에서 "Safari로 열기"를 눌러 주세요.' : '··· 메뉴에서 "다른 브라우저로 열기"를 눌러 주세요.'; }
+if(IN_APP){
+  $('inappMsg').textContent = IN_APP + ' 안에서 열려서 사진 저장이 안 될 수 있어요. ' + (canOpenExternal() ? '' : inAppHow());
+  $('inappOpen').hidden = !canOpenExternal();
+  $('inapp').hidden = false;
+  $('inappOpen').addEventListener('click', openExternal);
+  $('inappClose').addEventListener('click', ()=> $('inapp').hidden = true);
+}
 let modalUrl = null;
 let saved = null;
 function downloadFile(){ try{ const a = document.createElement('a'); a.href = modalUrl; a.download = saved.name; document.body.appendChild(a); a.click(); a.remove(); }catch(_){} }
@@ -2149,11 +2181,17 @@ function fallbackSave(blob, name){
   saved = { blob, name, file };
   const phone = matchMedia('(pointer:coarse)').matches;
   // 휴대폰은 공유 시트의 '이미지 저장'으로 사진첩에 바로 넣는 게 편해서, 자동 다운로드 대신 버튼을 보여줘요
-  if(!(phone && canShare)) downloadFile();
+  if(!(phone && canShare) && !IN_APP) downloadFile();
   $('shareBtn').hidden = !canShare;
   $('dlBtn').hidden = !(phone && canShare);
   $('modalNote').textContent = canShare && phone ? '"사진 저장 · 공유"에서 이미지 저장을 누르면 사진첩에 들어가요.' : '이미지가 저장되지 않았다면 길게 누르거나 오른쪽 클릭해서 저장하세요.';
-  $('modalImg').src = modalUrl; $('modal').hidden = false; (canShare ? $('shareBtn') : $('modalClose')).focus(); SFX.tinks(6, .25); buzz(20);
+  if(IN_APP){   // 앱 안 브라우저: 이미지를 길게 눌러 저장할 수 있게 data 주소로 보여 주고, 바깥 브라우저 안내
+    $('modalNote').textContent = '이미지를 길게 눌러 저장해 주세요. 안 되면 ' + (canOpenExternal() ? '"브라우저로 열기"를 누른 뒤 다시 저장해 주세요.' : inAppHow());
+    $('dlBtn').hidden = true;
+    const fr = new FileReader(); fr.onload = ()=>{ $('modalImg').src = fr.result; }; fr.readAsDataURL(blob);
+    $('inappOpen2').hidden = !canOpenExternal();
+  } else $('modalImg').src = modalUrl;
+  $('modal').hidden = false; (canShare ? $('shareBtn') : $('modalClose')).focus(); SFX.tinks(6, .25); buzz(20);
 }
 $('shareBtn').addEventListener('click', async ()=>{
   if(!saved || !saved.file) return;
@@ -2161,6 +2199,7 @@ $('shareBtn').addEventListener('click', async ()=>{
   catch(err){ if(err && err.name !== 'AbortError') downloadFile(); }
 });
 $('dlBtn').addEventListener('click', downloadFile);
+$('inappOpen2').addEventListener('click', openExternal);
 function closeModal(){ $('modal').hidden = true; }
 $('modalClose').addEventListener('click', closeModal);
 $('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
