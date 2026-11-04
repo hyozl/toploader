@@ -967,72 +967,76 @@ function wavyRun(run, w){
   }
   return out;
 }
-function creamRope(ctx, runs, w, shadesAt){
-  const lines = runs.map(r => ({ q: wavyRun(r, w), closed: r.closed }));
-  const tw = w*.9;   // 크림 굵기
+function creamRope(ctx, lines, w, shadesAt){
+  const tw = w*.9, TAU = Math.PI*2;   // 크림 굵기
   const segs = [];   // 그라데이션 색을 따라가도록 조금씩 나눠 그려요
   let total = 0; lines.forEach(l => total += l.q.length);
   let acc = 0;
   lines.forEach(l => {
-    const q = l.q, step = 6;
+    const q = l.q, step = 10;
     for(let i=0;i<q.length-1;i+=step){
       const part = q.slice(i, Math.min(q.length, i+step+1)), u = (acc + i)/Math.max(1,total-1);
-      segs.push({ part, t: l.closed ? 1 - Math.abs(2*q[i][2]-1) : u });
+      segs.push({ part, cs: shadesAt(l.closed ? 1 - Math.abs(2*q[i][2]-1) : u) });
     }
     acc += q.length;
   });
-  const off = (part, o)=>{   // 크림 줄기 안에서 옆으로 o만큼 떨어진 결
-    ctx.beginPath();
-    part.forEach((p,i)=>{
-      const a = part[Math.min(part.length-1,i+1)], b = part[Math.max(0,i-1)];
-      let tx = a[0]-b[0], ty = a[1]-b[1]; const l = Math.hypot(tx,ty)||1; tx/=l; ty/=l;
-      const x = p[0] - ty*o, y = p[1] + tx*o; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
-    });
-  };
-  const pass = (fn)=> segs.forEach(sg => { const cs = shadesAt(sg.t); fn(sg.part, cs); });
+  const pass = fn => segs.forEach(sg => fn(sg.part, sg.cs));
   const line = (part, dx=0, dy=0)=>{ ctx.beginPath(); part.forEach((p,i)=> i ? ctx.lineTo(p[0]+dx,p[1]+dy) : ctx.moveTo(p[0]+dx,p[1]+dy)); };
   ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  // 1) 그림자: 은은하게
+  // 1) 그림자: 줄 전체를 한 번에 (조각마다 그리면 느려요)
   ctx.shadowColor = 'rgba(55,35,65,.14)'; ctx.shadowBlur = Math.min(w*.18, 14); ctx.shadowOffsetX = Math.min(w*.02, 2); ctx.shadowOffsetY = Math.min(w*.06, 5);
-  pass((p,cs)=>{ ctx.strokeStyle = cs.dark; ctx.lineWidth = tw; line(p); ctx.stroke(); });
+  ctx.strokeStyle = shadesAt(.5).dark; ctx.lineWidth = tw;
+  lines.forEach(l => { line(l.q); if(l.closed) ctx.closePath(); ctx.stroke(); });
   ctx.shadowColor = 'transparent';
   // 2) 둥근 몸통: 가장자리에서 왼쪽 위 꼭대기로 갈수록 조금씩 밝게
+  pass((p,cs)=>{ ctx.strokeStyle = cs.dark;  ctx.lineWidth = tw;     line(p); ctx.stroke(); });
   pass((p,cs)=>{ ctx.strokeStyle = cs.base;  ctx.lineWidth = tw*.9;  line(p, -tw*.03, -tw*.04); ctx.stroke(); });
   pass((p,cs)=>{ ctx.strokeStyle = cs.light; ctx.lineWidth = tw*.66; line(p, -tw*.07, -tw*.09); ctx.stroke(); });
   ctx.globalAlpha = .55;
   pass((p,cs)=>{ ctx.strokeStyle = cs.hi;    ctx.lineWidth = tw*.4;  line(p, -tw*.11, -tw*.14); ctx.stroke(); });
-  ctx.globalAlpha = 1;
-  // 3) 깍지 자국: 별깍지로 짠 것처럼 크림 줄기를 따라 나란히 흐르는 골
-  const sh = (part, o, dx=0, dy=0)=>{ ctx.beginPath(); part.forEach((p,i)=>{ const x = p[0] + p[4]*o + dx, y = p[1] + p[5]*o + dy; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }); };
+  // 3) 깍지 결: 넓고 흐릿한 골이 살짝씩 흔들리며 나타났다 사라져요
+  const sh = (q, o, k, dx, dy)=>{ ctx.beginPath(); q.forEach((p,i)=>{ const oo = o + tw*.03*Math.sin(TAU*k*p[2] + o*.3), x = p[0] + p[4]*oo + dx, y = p[1] + p[5]*oo + dy; i ? ctx.lineTo(x,y) : ctx.moveTo(x,y); }); };
   ctx.lineCap = 'butt';
-  const GR = [-.34, -.2, -.07, .07, .2, .34];
-  GR.forEach(g => {
-    const o = g*tw, edge = 1 - Math.abs(g)*.9;
-    ctx.globalAlpha = .26*edge + .08;
-    pass((p,cs)=>{ ctx.strokeStyle = cs.ridge; ctx.lineWidth = tw*.035; sh(p, o, tw*.012, tw*.018); ctx.stroke(); });
-    ctx.globalAlpha = .55*edge;
-    pass((p,cs)=>{ ctx.strokeStyle = cs.hi; ctx.lineWidth = tw*.03; sh(p, o, -tw*.018, -tw*.026); ctx.stroke(); });
+  [[-.26, 9], [-.05, 13], [.17, 11]].forEach(([g, k]) => {
+    const o = g*tw;
+    ctx.globalAlpha = .1;
+    pass((p,cs)=>{ ctx.strokeStyle = cs.ridge; ctx.lineWidth = tw*.09; sh(p, o, k, tw*.02, tw*.03); ctx.stroke(); });
+    ctx.globalAlpha = .35;
+    pass((p,cs)=>{ ctx.strokeStyle = cs.hi; ctx.lineWidth = tw*.06; sh(p, o, k, -tw*.03, -tw*.04); ctx.stroke(); });
   });
   ctx.globalAlpha = 1; ctx.lineCap = 'round';
-  // 4) 물결이 꺾이는 곳마다: 안쪽 주름 그늘과 바깥쪽 반짝임
+  // 4) 볼록한 꼭대기마다 반짝임
+  ctx.fillStyle = '#fff';
   lines.forEach(l => {
     const q = l.q;
     for(let i=1;i<q.length-1;i++){
       const v = q[i][3];
-      if(Math.abs(v) < .97 || Math.abs(v) < Math.abs(q[i-1][3]) || Math.abs(v) < Math.abs(q[i+1][3])) continue;   // 꼭대기만
-      const sg = Math.sign(v), nx = q[i][4]*sg, ny = q[i][5]*sg, cs = shadesAt(l.closed ? 1 - Math.abs(2*q[i][2]-1) : q[i][2]);
-      const ang = Math.atan2(q[i+1][1]-q[i-1][1], q[i+1][0]-q[i-1][0]);
-      // 바깥쪽(볼록한 쪽) 반짝임
-      ctx.globalAlpha = CREAM_GLOSS; ctx.fillStyle = '#fff';
+      if(Math.abs(v) < .97 || Math.abs(v) < Math.abs(q[i-1][3]) || Math.abs(v) < Math.abs(q[i+1][3])) continue;
+      const sg = Math.sign(v), nx = q[i][4]*sg, ny = q[i][5]*sg, ang = Math.atan2(q[i+1][1]-q[i-1][1], q[i+1][0]-q[i-1][0]);
+      ctx.globalAlpha = CREAM_GLOSS;
       ctx.beginPath(); ctx.ellipse(q[i][0] + nx*tw*.12 - tw*.1, q[i][1] + ny*tw*.12 - tw*.12, tw*.14, tw*.06, ang, 0, Math.PI*2); ctx.fill();
       ctx.globalAlpha = .8;
       ctx.beginPath(); ctx.arc(q[i][0] + nx*tw*.1 - tw*.16, q[i][1] + ny*tw*.1 - tw*.15, tw*.025, 0, Math.PI*2); ctx.fill();
     }
-    // 5) 줄기를 따라 흐르는 은은한 광택
-    ctx.globalAlpha = CREAM_GLOSS*.6; ctx.strokeStyle = '#fff'; ctx.lineWidth = tw*.07;
-    line(q, -tw*.17, -tw*.21); ctx.stroke();
   });
   ctx.restore(); ctx.globalAlpha = 1;
+}
+// 물결 크림은 한 번 그려 두고 다시 써요 (움직일 때마다 새로 그리면 버벅여요)
+let ropeCache = { key:'', cv:null, lines:null };
+function ropeLayer(ctx, runs, w, st, shadesAt){
+  const m = ctx.getTransform(), sc = Math.hypot(m.a, m.b);
+  const lk = JSON.stringify([state.cream.edges, w]);
+  let lines = ropeCache.lk === lk ? ropeCache.lines : runs.map(r => ({ q: wavyRun(r, w), closed: r.closed }));
+  if(sc > 3.2){ ropeCache.lk = lk; ropeCache.lines = lines; creamRope(ctx, lines, w, shadesAt); return lines; }   // 아주 크게 확대했을 땐 바로 그려요
+  const key = JSON.stringify([lk, st.color, st.color2, st.grad, Math.round(sc*100)]);
+  if(ropeCache.key !== key){
+    const cv = ropeCache.cv || document.createElement('canvas');
+    cv.width = Math.ceil(LW*sc); cv.height = Math.ceil(LH*sc);
+    const c2 = cv.getContext('2d'); c2.setTransform(sc,0,0,sc,0,0); c2.clearRect(0,0,LW,LH);
+    creamRope(c2, lines, w, shadesAt);
+    ropeCache = { key, cv, lines, lk };
+  }
+  ctx.drawImage(ropeCache.cv, 0, 0, LW, LH);
   return lines;
 }
 let bCache = { key:'', v:[] };
@@ -1078,7 +1082,7 @@ function drawLayer(ctx, stamps, st, seed, base){
   const rope = base && stamps.length > 1 && (st.tip==='wave' || st.tip==='shell');   // 물결은 한 줄로 쭉 이어진 크림
   const runPath = (r, dx=0, dy=0)=>{ ctx.beginPath(); r.pts.forEach((q,i)=> i ? ctx.lineTo(q[0]+dx,q[1]+dy) : ctx.moveTo(q[0]+dx,q[1]+dy)); if(r.closed) ctx.closePath(); };
   if(rope){
-    const w = stamps[0].s, lines = creamRope(ctx, stamps.runs, w, shadesAt), tops = [];
+    const w = stamps[0].s, lines = ropeLayer(ctx, stamps.runs, w, st, shadesAt), tops = [];
     // 진주·스프링클은 구불구불한 크림 위에 올라가게
     lines.forEach(l => { let d = 0; for(let i=1;i<l.q.length;i++){ d += Math.hypot(l.q[i][0]-l.q[i-1][0], l.q[i][1]-l.q[i-1][1]); if(d >= w*.8){ d = 0; tops.push({ x:l.q[i][0], y:l.q[i][1], s:w*.62, t:0 }); } } });
     stamps = Object.assign(tops, { runs: stamps.runs });
