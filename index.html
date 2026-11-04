@@ -268,7 +268,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         <button class="btn zb fit" type="button" id="zoomFitBtn" aria-label="화면에 맞추기" hidden>맞춤</button>
       </div>
       <div class="empty" id="emptyHint"><b>빈 탑로더예요</b>탑로더를 눌러 사진을 넣어요</div>
-      <div class="chip" id="pipeChip" hidden>꾸욱 누르고 그어서 크림을 짜요</div>
       <button class="btn primary resume" id="resumeBtn" type="button" hidden>이전 작업 이어하기</button>
     </div>
     <div class="selrow" id="selRow" hidden>
@@ -311,19 +310,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 
     <!-- 크림 -->
     <div class="pane" role="tabpanel" id="p-cream" aria-labelledby="t-cream" hidden>
-      <div class="seg" id="creamSeg" role="group" aria-label="크림 짜는 방법">
-        <button type="button" data-m="border">테두리</button>
-        <button type="button" data-m="draw">직접 짜기</button>
-      </div>
       <div class="group" id="creamBorderBox">
         <div class="pills" id="edgeRow"></div>
         <button class="btn primary wide" type="button" id="squeezeBtn">꾸욱 눌러 짜기</button>
         <div class="meter" aria-hidden="true"><span id="meterFill"></span></div>
         <p class="note">누르는 동안 크림이 두툼해져요. 다시 누르면 새로 짜요.</p>
-      </div>
-      <div class="group" id="creamDrawBox" hidden>
-        <p class="note">탑로더를 꾸욱 누르면 크림이 나와요. 오래 누를수록 두툼하고, 빠르게 그으면 가늘어요.</p>
-        <div class="row"><button class="link" type="button" id="strokeClear">직접 짠 크림 지우기</button></div>
       </div>
       <div class="group"><span class="label">깍지</span><div class="tips" id="tipRow"></div></div>
       <div class="group">
@@ -801,15 +792,14 @@ function drawSelection(ctx){
 /* =========================================================
    짤주머니 크림
    ========================================================= */
-const TIPS = [ { id:'star', name:'별깍지' }, { id:'bead', name:'동글' }, { id:'shell', name:'조개' } ];
+const TIPS = [ { id:'star', name:'별깍지' }, { id:'bead', name:'동글' }, { id:'wave', name:'물결' } ];
 const SPRINKLE = ['#ff6fa0','#ffd34d','#6fd0a0','#7fb8ff','#b48cf0','#ffffff'];
 const SMIN = 24, SMAX = 80, BMIN = 40, BMAX = 150, PMAX = 260;
 // 크림 덩어리가 저장 범위를 벗어나지 않는 만큼까지만 커져요 (가운데에서는 아주 크게)
 function edgeRoom(x, y){ return Math.min(PMAX, 2*Math.min(x-(X0-BLEED), X0+TW+BLEED-x, y-(Y0-BLEED), Y0+TH+BLEED-y)/1.08); }
-let creamMode = 'border';                       // 'border' 테두리 | 'draw' 직접 짜기
-let brush = { tip:'bead', color:'#ffb3c8', color2:'#a9d6ff', grad:false, pearl:false, sprinkle:false };
-function isPiping(){ return curTab==='cream' && creamMode==='draw'; }
-function activeStyle(){ return creamMode==='border' ? state.cream.style : brush; }
+const creamMode = 'border';                     // 크림은 테두리에만 짜요 (직접 짜기는 없앴어요)
+function isPiping(){ return false; }
+function activeStyle(){ return state.cream.style; }
 function clampPipe(p){ return [ Math.round(clamp(p.x, X0+6, X0+TW-6)*10)/10, Math.round(clamp(p.y, Y0+6, Y0+TH-6)*10)/10 ]; }
 
 function creamShades(h){
@@ -829,9 +819,11 @@ function specular(ctx, x, y, rx, ry, a=CREAM_GLOSS){ ctx.fillStyle = `rgba(255,2
 function drawStamp(ctx, tip, x, y, r, ang, cs, rot){
   ctx.save(); ctx.translate(x, y);
   ctx.fillStyle = 'rgba(60,38,70,.2)';   // 옆 크림과 맞닿는 곳의 그늘
-  ctx.beginPath(); ctx.ellipse(r*.05, r*.22, r*(tip==='shell'?1.18:.98), r*.9, tip==='shell'?ang:0, 0, Math.PI*2); ctx.fill();
+  if(tip==='shell') tip = 'wave';   // 예전 조개 모양은 물결로
+  if(tip==='wave'){ ctx.fillStyle = 'rgba(60,38,70,.08)'; ctx.beginPath(); ctx.ellipse(r*.05, r*.12, r*1.05, r*.6, ang, 0, Math.PI*2); ctx.fill(); }
+  else { ctx.beginPath(); ctx.ellipse(r*.05, r*.22, r*.98, r*.9, 0, 0, Math.PI*2); ctx.fill(); }
   if(tip==='star') rosette(ctx, r, cs, rot);
-  else if(tip==='shell') shell(ctx, r, cs, ang);
+  else if(tip==='wave') wave(ctx, r, cs, ang);
   else bead(ctx, r, cs);
   ctx.restore();
 }
@@ -879,26 +871,42 @@ function rosette(ctx, r, cs, rot){
   specular(ctx, -r*.1, -r*.12, r*.09, r*.055);
   specular(ctx, -r*.48, -r*.46, r*.14, r*.08);
 }
-function shell(ctx, r, cs, ang){
-  const c = Math.cos(-ang), s = Math.sin(-ang), hx = -r*.38, hy = -r*.42;
-  ctx.rotate(ang);
-  ctx.fillStyle = creamGrad(ctx, r, cs, hx*c - hy*s - r*.3, hx*s + hy*c);
-  ctx.beginPath();
-  ctx.moveTo(r*1.3, 0);
-  ctx.quadraticCurveTo(r*.35, -r*.98, -r*.4, -r*.82);
-  ctx.bezierCurveTo(-r*1.25, -r*.72, -r*1.25, r*.72, -r*.4, r*.82);
-  ctx.quadraticCurveTo(r*.35, r*.98, r*1.3, 0);
-  ctx.fill();
-  ctx.lineCap = 'round';
-  [[-.5,-.48],[-.75,0],[-.5,.48]].forEach(([ex,ey])=>{
-    ctx.strokeStyle = cs.ridge; ctx.globalAlpha = .55; ctx.lineWidth = r*.09;
-    ctx.beginPath(); ctx.moveTo(r*1.15, 0); ctx.quadraticCurveTo(r*.2, r*ey*.9, r*ex, r*ey); ctx.stroke();
-    ctx.strokeStyle = cs.hi; ctx.globalAlpha = .35; ctx.lineWidth = r*.06;
-    ctx.beginPath(); ctx.moveTo(r*1.05, -r*.05); ctx.quadraticCurveTo(r*.2, r*ey*.9 - r*.14, r*ex + r*.05, r*ey - r*.12); ctx.stroke();
-  });
+/* 물결: 별깍지로 짠 크림이 쉼표처럼 말리는 모양. 꼬리 끝에서 모인 가는 결들이
+   머리 쪽으로 퍼지며 둥글게 말려요. 같은 덩이가 비스듬히 겹쳐 이어져 물결무늬가 돼요. */
+function wave(ctx, r, cs, ang){
+  const frame = ()=>{ ctx.rotate(ang); ctx.scale(-1, 1); ctx.rotate(-.38); };   // 비스듬히 기울여 물결처럼
+  const T = [-r*1.25, r*.32];                       // 꼬리 끝 (결이 모이는 곳)
+  const curve = (f, dx=0, dy=0)=>{                   // f: 1이면 바깥 윤곽, 작을수록 안쪽 결
+    ctx.moveTo(T[0]+dx, T[1]+dy);
+    ctx.bezierCurveTo(-r*1.05+dx, -r*.55*f+dy, -r*.15+dx, -r*1.0*f+dy, r*.45*f+dx, -r*.82*f+dy);
+    ctx.bezierCurveTo(r*1.05*f+dx, -r*.62*f+dy, r*1.1*f+dx, r*.18*f+dy, r*.62*f+dx, r*.42*f+dy);
+  };
+  const body = ()=>{ ctx.beginPath(); curve(1); ctx.bezierCurveTo(r*.15, r*.75, -r*.7, r*.68, T[0], T[1]); ctx.closePath(); };
+  // 몸통
+  ctx.save(); frame(); body(); ctx.restore();
+  ctx.fillStyle = creamGrad(ctx, r, cs, -r*.38, -r*.42); ctx.fill();
+  // 가는 결 (별깍지 자국) — 몸통 안에서만
+  ctx.save(); frame(); body(); ctx.clip();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for(let i=0;i<7;i++){
+    const f = .97 - i*.11;
+    ctx.globalAlpha = .32; ctx.strokeStyle = cs.ridge; ctx.lineWidth = r*.07;
+    ctx.beginPath(); curve(f, r*.015, r*.03); ctx.stroke();                      // 홈 (그늘)
+    ctx.globalAlpha = .5;  ctx.strokeStyle = cs.hi;    ctx.lineWidth = r*.05;
+    ctx.beginPath(); curve(f + .05, -r*.01, -r*.03); ctx.stroke();               // 결 등 (빛)
+  }
+  // 아래쪽 배에도 결이 이어지게
+  for(let i=0;i<3;i++){
+    const y = r*(.28 + i*.14);
+    ctx.globalAlpha = .28; ctx.strokeStyle = cs.ridge; ctx.lineWidth = r*.06;
+    ctx.beginPath(); ctx.moveTo(T[0], T[1]); ctx.quadraticCurveTo(-r*.35, y + r*.22, r*.4, y); ctx.stroke();
+  }
+  // 말린 머리 안쪽의 깊은 홈
+  ctx.globalAlpha = .45; ctx.fillStyle = cs.deep;
+  ctx.beginPath(); ctx.ellipse(r*.22, -r*.05, r*.13, r*.08, -.5, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
   ctx.globalAlpha = 1;
-  ctx.rotate(-ang);
-  specular(ctx, -r*.45*Math.cos(ang) - r*.2, -r*.45*Math.sin(ang) - r*.3, r*.16, r*.09);
+  specular(ctx, -r*.25, -r*.5, r*.15, r*.08);
 }
 function pearl(ctx, x, y, r){
   ctx.fillStyle = 'rgba(70,45,80,.18)'; ctx.beginPath(); ctx.arc(x+r*.08, y+r*.22, r, 0, Math.PI*2); ctx.fill();
@@ -917,7 +925,7 @@ function sprinkles(ctx, x, y, r, seed){
     ctx.beginPath(); ctx.moveTo(px-Math.cos(a)*l, py-Math.sin(a)*l); ctx.lineTo(px+Math.cos(a)*l, py+Math.sin(a)*l); ctx.stroke();
   }
 }
-function tipSpacing(tip, size){ const r = size/2; return tip==='star' ? r*1.22 : tip==='shell' ? r*1.0 : r*1.25; }
+function tipSpacing(tip, size){ const r = size/2; return tip==='star' ? r*1.22 : (tip==='wave' || tip==='shell') ? r*.95 : r*1.25; }
 
 // 선을 따라 크림 한 덩이씩 놓을 자리 계산. 각 점은 [x, y, 굵기]
 function stampsAlong(pts, tip, closed){
@@ -972,7 +980,9 @@ function borderStamps(){
   let out = []; const runs = [];   // runs: 바닥 크림을 그릴 실제 테두리 경로
   if(flags.every(Boolean)){
     runs.push({ pts: pts.map(p=>[p.x,p.y]), closed: true });
-    out = stampsAlong(pts.map(p=>[p.x,p.y,sz]), c.style.tip, true);
+    // 이음매가 모서리에 오지 않게 위 테두리 가운데서 시작해요
+    const mid = Math.round(pts.filter(p=>p.e==='top').length/2), loop = pts.slice(mid).concat(pts.slice(0, mid));
+    out = stampsAlong(loop.map(p=>[p.x,p.y,sz]), c.style.tip, true);
     out.forEach((p,i)=>{ const u = i/out.length; p.t = 1 - Math.abs(2*u-1); });   // 한 바퀴 돌아 이음매 없이
   } else if(flags.some(Boolean)){
     const st = flags.indexOf(false), order = [...pts.keys()].map(i => (i+st)%pts.length);
@@ -1682,14 +1692,9 @@ $('textIn').addEventListener('change', ()=>{ if(state.items.some(i=>i.id===selec
 /* 크림 패널 */
 function setCreamProp(k, v, commit){
   activeStyle()[k] = v;
-  if(creamMode==='border'){ if(commit) record(); draw(); }
+  if(commit) record(); draw();
   syncCream();
 }
-document.querySelectorAll('#creamSeg button').forEach(b => b.addEventListener('click', ()=>{
-  creamMode = b.dataset.m; editStop = 'a';
-  if(creamMode==='draw' && selected) selected = null;
-  syncUI(); draw();
-}));
 [['top','위'],['bottom','아래'],['left','왼쪽'],['right','오른쪽']].forEach(([e,label])=>{
   const b = document.createElement('button'); b.type='button'; b.className='pill'; b.dataset.e=e; b.textContent=label;
   b.addEventListener('click', ()=>{ state.cream.edges[e] = !state.cream.edges[e]; record(); syncCream(); draw(); });
@@ -1777,8 +1782,8 @@ function applyPicker(commit){
   const hex = hsvToHex(pk);
   activeStyle()[stopKey()] = hex;
   renderPicker(); syncCreamColors();
-  if(creamMode==='border') draw();
-  if(commit){ if(creamMode==='border') record(); addRecent(hex); }
+  draw();
+  if(commit){ record(); addRecent(hex); }
 }
 function addRecent(hex){ recent = [hex, ...recent.filter(c=> c.toLowerCase()!==hex.toLowerCase())].slice(0,8); renderRecent(); }
 function renderRecent(){
@@ -1821,35 +1826,27 @@ document.querySelectorAll('#stopBox .stop').forEach(b => b.addEventListener('cli
 function newSeed(){ return Math.floor(Math.random()*1e9); }
 $('pearlBtn').addEventListener('click', ()=>{
   const st = activeStyle(); st.pearl = true; st.pearlSeed = newSeed();
-  if(creamMode==='draw') state.strokes.forEach(x=>{ x.pearl = true; x.pearlSeed = newSeed(); });
   record(); syncCream(); draw();
   toast('진주를 새로 뿌렸어요'); SFX.tinks(10);
 });
 $('pearlOff').addEventListener('click', ()=>{
   activeStyle().pearl = false;
-  if(creamMode==='draw') state.strokes.forEach(x=>{ x.pearl = false; });
   record(); syncCream(); draw();
 });
 $('sprinkleBtn').addEventListener('click', ()=>{   // 누를 때마다 스프링클을 새로 흩뿌려요
   const st = activeStyle(); st.sprinkle = true; st.sprinkleSeed = newSeed();
-  if(creamMode==='draw') state.strokes.forEach(x=>{ x.sprinkle = true; x.sprinkleSeed = newSeed(); });
   record(); syncCream(); draw();
   toast('스프링클을 새로 뿌렸어요'); SFX.rattle(18);
 });
 $('sprinkleOff').addEventListener('click', ()=>{
   activeStyle().sprinkle = false;
-  if(creamMode==='draw') state.strokes.forEach(x=>{ x.sprinkle = false; });
   record(); syncCream(); draw();
-});
-$('strokeClear').addEventListener('click', ()=>{
-  if(!state.strokes.length){ toast('직접 짠 크림이 없어요'); return; }
-  state.strokes = []; record(); syncCream(); draw(); toast('지웠어요 · 되돌리기로 되돌릴 수 있어요');
 });
 
 /* =========================================================
    화면 동기화
    ========================================================= */
-function syncPipe(){ $('pipeChip').hidden = !isPiping(); cv.style.cursor = isPiping() ? 'crosshair' : ''; }
+function syncPipe(){}
 function syncSel(){ const it = getSel(); $('selRow').hidden = !it; $('selFlip').hidden = !(it && it.type === 'sticker'); }
 function syncPhoto(){
   $('zoomIn').value = Math.round(state.photo.zoom*100); $('zoomOut').value = Math.round(state.photo.zoom*100)+'%';
@@ -1895,16 +1892,14 @@ function syncCreamColors(){
 function syncCream(){
   const st = activeStyle();
   if(!st.grad) editStop = 'a';
-  document.querySelectorAll('#creamSeg button').forEach(b => pressed(b, b.dataset.m===creamMode));
-  $('creamBorderBox').hidden = creamMode!=='border'; $('creamDrawBox').hidden = creamMode!=='draw';
   document.querySelectorAll('#edgeRow .pill').forEach(b => pressed(b, state.cream.edges[b.dataset.e]));
   document.querySelectorAll('#tipRow .tipbtn').forEach(b => pressed(b, b.dataset.t===st.tip));
   pressed($('gradBtn'), st.grad);
   $('stopBox').hidden = !st.grad;
   document.querySelectorAll('#stopBox .stop').forEach(b => pressed(b, b.dataset.s===editStop));
   pressed($('pearlBtn'), st.pearl); pressed($('sprinkleBtn'), st.sprinkle);
-  $('pearlOff').hidden = !(st.pearl || (creamMode==='draw' && state.strokes.some(x=>x.pearl)));
-  $('sprinkleOff').hidden = !(st.sprinkle || (creamMode==='draw' && state.strokes.some(x=>x.sprinkle)));
+  $('pearlOff').hidden = !st.pearl;
+  $('sprinkleOff').hidden = !st.sprinkle;
   syncMeter();
   if(!$('sv')._drag && !$('hue')._drag && !bsq) loadPicker();
   syncCreamColors(); syncPipe();
@@ -2071,6 +2066,7 @@ async function resumeWork(){
       stickerImgs[m.id] = await loadImg(m.src); myStickers.push({ id: m.id, src: m.src });
     }
     data.state.items = data.state.items.filter(i => i.type !== 'sticker' || stickerImgs[i.sid]);
+    data.state.strokes = [];
     state = data.state; uid = Math.max(uid, data.uid || 0) + 1; selected = null;
     renderStickerGrid(); record(); syncUI(); draw(); $('resumeBtn').hidden = true;
     toast(data.photo || !(data.state.photo && data.state.photo.id) ? '이전 작업을 불러왔어요' : '이전 작업을 불러왔어요 · 사진은 다시 넣어주세요');
