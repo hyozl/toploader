@@ -1002,9 +1002,7 @@ function creamRope(ctx, runs, w, shadesAt){
   // 3) 깍지 자국: 크림 줄기를 따라 흐르는 가는 결 (끊기지 않게 한 줄로)
   const mid = shadesAt(.5);
   lines.forEach(l => {
-    ctx.globalAlpha = .18; ctx.strokeStyle = mid.ridge; ctx.lineWidth = tw*.05;
-    line(l.q, tw*.1, tw*.12); ctx.stroke();
-    ctx.globalAlpha = .5; ctx.strokeStyle = '#fff'; ctx.lineWidth = tw*.06;
+    ctx.globalAlpha = .25; ctx.strokeStyle = '#fff'; ctx.lineWidth = tw*.05;
     line(l.q, -tw*.06, -tw*.07); ctx.stroke();
     // 4) 광택
     ctx.globalAlpha = CREAM_GLOSS*.85; ctx.lineWidth = tw*.11; line(l.q, -tw*.2, -tw*.24); ctx.stroke();
