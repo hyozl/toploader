@@ -113,7 +113,7 @@ button{cursor:pointer}
 .zoombar{position:absolute;right:max(6px,env(safe-area-inset-right,0px));top:6px;z-index:7;display:flex;flex-direction:column;gap:6px;align-items:center}
 .zoombar .zb{width:38px;height:38px;padding:0;border-radius:12px;font-size:20px;line-height:1;box-shadow:0 3px 0 var(--soft-shadow),0 4px 10px rgba(60,40,90,.12)}
 .zoombar .zb.fit{font-size:11.5px;font-weight:800;height:30px}
-.zoombar .zl{font-size:11px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;background:var(--bg);border-radius:8px;padding:1px 5px}
+.zoombar .zl{cursor:pointer;font-size:11px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;background:var(--bg);border-radius:8px;padding:1px 5px}
 .chip{position:absolute;left:50%;top:6px;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:5px 14px;font-size:12.5px;font-weight:700;white-space:nowrap;max-width:calc(100% - 16px);overflow:hidden;text-overflow:ellipsis}
 .selrow{display:flex;gap:8px;min-height:40px;align-items:center}
 .selrow .btn{padding:7px 14px;font-size:13px;border-radius:12px;box-shadow:0 3px 0 var(--soft-shadow)}
@@ -1277,9 +1277,32 @@ function zoomAt(z, cx, cy, sharp=true){
   view.x = (cx - (cx - Cx)*k) - scx; view.y = (cy - (cy - Cy)*k) - scy; view.z = z;
   layoutView(sharp);
 }
-$('zoomInBtn').addEventListener('click', ()=> zoomAt(view.z * 1.5));
-$('zoomOutBtn').addEventListener('click', ()=> zoomAt(view.z / 1.5));
-$('zoomFitBtn').addEventListener('click', ()=>{ view.z = 1; view.x = 0; view.y = 0; layoutView(true); });
+// 부드럽게 확대·축소 (버튼, 두 번 톡, 맞춤)
+let zoomAnim = 0;
+function zoomTo(z, cx, cy){
+  cancelAnimationFrame(zoomAnim);
+  const z0 = view.z, z1 = clamp(z, ZMIN, ZMAX), t0 = performance.now(), D = 200;
+  if(Math.abs(z1 - z0) < .001) return;
+  const r = stage.getBoundingClientRect();
+  if(cx == null){ cx = r.left + r.width/2; cy = r.top + r.height/2; }
+  const step = now => {
+    const t = Math.min(1, (now - t0)/D), e = 1 - Math.pow(1-t, 3);
+    zoomAt(z0 * Math.pow(z1/z0, e), cx, cy, t >= 1);
+    if(t < 1) zoomAnim = requestAnimationFrame(step); else zoomHint();
+  };
+  zoomAnim = requestAnimationFrame(step);
+}
+function zoomReset(){ zoomTo(1); }
+// 처음 확대했을 때 한 번만 사용법 알려 주기
+function zoomHint(){
+  if(view.z <= 1.001) return;
+  let seen = false; try{ seen = localStorage.getItem('tg_zoom_hint') === '1'; localStorage.setItem('tg_zoom_hint','1'); }catch(_){}
+  if(!seen) toast(matchMedia('(pointer:coarse)').matches ? '빈 곳을 끌면 화면이 움직여요 · 두 번 톡 하면 원래대로' : '빈 곳을 끌면 화면이 움직여요 · 두 번 클릭하면 원래대로', 3200);
+}
+$('zoomInBtn').addEventListener('click', ()=> zoomTo(view.z * 1.5));
+$('zoomOutBtn').addEventListener('click', ()=> zoomTo(view.z / 1.5));
+$('zoomFitBtn').addEventListener('click', zoomReset);
+$('zoomLabel').addEventListener('click', zoomReset);
 let raf = 0;
 function draw(){ if(raf) return; raf = requestAnimationFrame(()=>{ raf=0; render(ctx, viewScale, 0, 0, true); }); }
 new ResizeObserver(fit).observe(stage);
@@ -1347,7 +1370,7 @@ const pts = new Map(), ptsC = new Map(); let drag = null, pinch = null;
 const buzz = (ms=8)=>{ try{ if(SFX.isOn() && navigator.vibrate) navigator.vibrate(ms); }catch(_){} };
 let lastTap = { t:0, x:0, y:0 };
 cv.addEventListener('pointerdown', e=>{
-  cv.setPointerCapture(e.pointerId);
+  try{ cv.setPointerCapture(e.pointerId); }catch(_){}
   const p = toLogical(e); pts.set(e.pointerId, p); ptsC.set(e.pointerId, { x:e.clientX, y:e.clientY });
   if(isPiping()){
     if(drag && drag.mode==='pipe') return;
@@ -1378,12 +1401,13 @@ cv.addEventListener('pointerdown', e=>{
     const now = performance.now();
     if(now - lastTap.t < 320 && Math.hypot(e.clientX-lastTap.x, e.clientY-lastTap.y) < 30){   // 두 번 톡 = 확대/원래대로
       lastTap.t = 0; drag = null;
-      if(view.z > 1.05){ view.z = 1; view.x = 0; view.y = 0; layoutView(true); } else zoomAt(2.2, e.clientX, e.clientY);
+      if(view.z > 1.05) zoomReset(); else zoomTo(2.2, e.clientX, e.clientY);
       buzz(6); return;
     }
     lastTap = { t: now, x: e.clientX, y: e.clientY };
   }
-  if(images[state.photo.id]){ if(curTab === 'photo') drag = { mode:'photo', sx:p.x, sy:p.y, x0:state.photo.ox, y0:state.photo.oy, moved:false }; }   // 사진은 사진 탭에서만 움직여요
+  if(images[state.photo.id] && curTab === 'photo') drag = { mode:'photo', sx:p.x, sy:p.y, x0:state.photo.ox, y0:state.photo.oy, moved:false };   // 사진은 사진 탭에서만 움직여요
+  else if(view.z > 1.001){ drag = { mode:'pan', cx:e.clientX, cy:e.clientY, x0:view.x, y0:view.y, moved:false }; cv.style.cursor = 'grabbing'; }   // 확대했을 땐 빈 곳을 끌어 화면 이동
   else if(inInner(p) && !hadSel && !state.items.length && !state.strokes.length) drag = { mode:'tap', sx:p.x, sy:p.y, moved:false };   // 아무것도 없는 빈 탑로더를 누를 때만 사진 고르기
 });
 cv.addEventListener('pointermove', e=>{
@@ -1391,6 +1415,10 @@ cv.addEventListener('pointermove', e=>{
   if(pts.has(e.pointerId)){ pts.set(e.pointerId, p); ptsC.set(e.pointerId, { x:e.clientX, y:e.clientY }); }
   if(pinch && pts.size>=2){ doPinch(); return; }
   if(!drag){ hoverCursor(p); return; }
+  if(drag.mode==='pan'){
+    const c = ptsC.get(e.pointerId) || { x:e.clientX, y:e.clientY };
+    view.x = drag.x0 + c.x - drag.cx; view.y = drag.y0 + c.y - drag.cy; drag.moved = true; layoutView(false); return;
+  }
   if(drag.mode==='tap'){ if(Math.hypot(p.x-drag.sx, p.y-drag.sy) > 20*LW/cssW) drag = null; return; }   // 손가락이 미끄러지면 사진 고르기 취소
   if(drag.mode==='pipe') pipeMove(p, e);
   else if(drag.mode==='move'){
@@ -1412,6 +1440,7 @@ function endPointer(e){
   if(pinch){ if(pts.size<2){ if(pinch.view) layoutView(true); else if(pinch.moved) record(); pinch=null; } return; }
   if(drag){
     if(drag.mode==='tap'){ drag = null; if(e.type==='pointerup' && performance.now() - (window.__pickAt||0) > 800){ window.__pickAt = performance.now(); $('fileIn').click(); } return; }
+    if(drag.mode==='pan'){ drag = null; cv.style.cursor = ''; return; }
     if(drag.mode==='pipe') stopSqueeze();
     if(drag.mode==='move' && drag.moved) SFX.pop(480, .13);
     if(drag.moved) record();
@@ -1419,6 +1448,11 @@ function endPointer(e){
   }
 }
 cv.addEventListener('pointerup', endPointer);
+cv.addEventListener('dblclick', e=>{   // 마우스로 빈 곳 두 번 클릭 = 확대/원래대로
+  const p = toLogical(e);
+  if(hitItem(p) || (images[state.photo.id] && curTab === 'photo')) return;
+  if(view.z > 1.05) zoomReset(); else zoomTo(2.2, e.clientX, e.clientY);
+});
 cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('lostpointercapture', e=>{ if(pts.has(e.pointerId)) endPointer(e); });
 
@@ -1426,6 +1460,7 @@ function hoverCursor(p){
   if(isPiping()){ cv.style.cursor = 'crosshair'; return; }
   const sel = getSel();
   let c = images[state.photo.id] ? (curTab === 'photo' ? 'grab' : 'default') : (inInner(p) ? 'pointer' : 'default');
+  if(view.z > 1.001 && !(images[state.photo.id] && curTab === 'photo')) c = 'grab';   // 확대했을 땐 끌어서 화면 이동
   if(hitItem(p)) c = 'move';
   if(sel){ const h = hitHandle(sel,p); if(h==='del') c='pointer'; if(h==='xf') c='nwse-resize'; }
   cv.style.cursor = c;
@@ -1433,7 +1468,8 @@ function hoverCursor(p){
 function normRot(r){ r = ((r+180)%360+360)%360-180; return Math.abs(r)<3 ? 0 : Math.round(r); }
 function startPinch(){
   const [a,b] = [...pts.values()], sel = getSel();
-  if(!sel){   // 아무것도 선택하지 않았을 때 두 손가락 = 화면 확대·이동
+  const mid = { x:(a.x+b.x)/2, y:(a.y+b.y)/2 }, onSel = sel && [a, b, mid].some(q => hitItem(q) === sel);
+  if(!onSel){   // 선택한 것 밖에서 두 손가락 = 화면 확대·이동
     const [ca, cb] = [...ptsC.values()];
     pinch = { view:true, d0: Math.hypot(cb.x-ca.x, cb.y-ca.y) || 1, m0: { x:(ca.x+cb.x)/2, y:(ca.y+cb.y)/2 }, z0: view.z, x0: view.x, y0: view.y };
     return;
@@ -1458,7 +1494,7 @@ let wheelT = 0;
 cv.addEventListener('wheel', e=>{
   if(e.ctrlKey || e.metaKey){ e.preventDefault(); zoomAt(view.z * Math.exp(-e.deltaY*.01), e.clientX, e.clientY); return; }
   const sel = getSel();
-  if(!sel && !(images[state.photo.id] && curTab === 'photo')) return;
+  if(!sel && !(images[state.photo.id] && curTab === 'photo')){ e.preventDefault(); zoomAt(view.z * Math.exp(-e.deltaY*.002), e.clientX, e.clientY); clearTimeout(wheelT); wheelT = setTimeout(zoomHint, 300); return; }   // 마우스 휠 = 화면 확대·축소
   e.preventDefault();
   const f = Math.exp(-e.deltaY*.0015);
   if(sel) sel.scale = clamp(sel.scale*f,.25,4);
@@ -1468,7 +1504,16 @@ cv.addEventListener('wheel', e=>{
 }, { passive:false });
 
 /* 장식 추가·편집 */
-function spot(){ const n = state.items.length; return { x: IN.cx + ((n*67)%180 - 90), y: IN.cy + ((n*113)%260 - 130) }; }
+// 지금 화면에 보이는 곳의 가운데 (확대했을 때 새 파츠가 화면 밖에 생기지 않게)
+function viewCenter(){
+  const r = stage.getBoundingClientRect(), p = toLogical({ clientX: r.left + r.width/2, clientY: r.top + r.height/2 });
+  return { x: clamp(p.x, X0, X0+TW), y: clamp(p.y, Y0, Y0+TH) };
+}
+function spot(){
+  const n = state.items.length;
+  if(view.z > 1.001){ const c = viewCenter(), k = 1/view.z; return { x: c.x + ((n*67)%180 - 90)*k, y: c.y + ((n*113)%260 - 130)*k }; }
+  return { x: IN.cx + ((n*67)%180 - 90), y: IN.cy + ((n*113)%260 - 130) };
+}
 function addSticker(sid){
   buzz(10);
   SFX.pop(620, .28);
@@ -1481,7 +1526,7 @@ function addText(){
   if(!t){ $('textIn').focus(); toast('먼저 글씨를 입력해 주세요'); return; }
   SFX.pop(860, .22);
   const n = state.items.filter(i => i.type === 'text').length;      // 새 글씨는 앞 글씨와 겹치지 않게 조금씩 위로
-  const it = { id:'i'+(uid++), type:'text', text:t, x:IN.cx, y:IN.y+IN.h*.82 - (n%6)*72, scale:1, rot:0, color:textStyle.color, font:textStyle.font, outline:textStyle.outline };
+  const it = { id:'i'+(uid++), type:'text', text:t, ...(view.z > 1.001 ? viewCenter() : { x:IN.cx, y:IN.y+IN.h*.82 - (n%6)*72 }), scale:1, rot:0, color:textStyle.color, font:textStyle.font, outline:textStyle.outline };
   state.items.push(it);
   // 붙이고 나면 입력칸을 비워서 바로 다음 글씨를 쓸 수 있게
   const typing = document.activeElement === $('textIn');
@@ -2019,6 +2064,11 @@ document.addEventListener('keydown', e=>{
     const it = getSel(); if(it){ e.preventDefault(); const st = e.shiftKey ? 10 : 2;
       it.x = clamp(it.x + arrow[0]*st, X0-OUT, X0+TW+OUT); it.y = clamp(it.y + arrow[1]*st, Y0-OUT, Y0+TH+OUT); draw();
       clearTimeout(nudgeT); nudgeT = setTimeout(record, 400); }
+  }
+  if(!typing && !e.ctrlKey && !e.metaKey){   // 화면 확대: + / - / 0
+    if(e.key==='+' || e.key==='='){ e.preventDefault(); zoomTo(view.z * 1.5); }
+    else if(e.key==='-' || e.key==='_'){ e.preventDefault(); zoomTo(view.z / 1.5); }
+    else if(e.key==='0'){ e.preventDefault(); zoomReset(); }
   }
   if((e.key==='Delete'||e.key==='Backspace') && !typing && selected){ e.preventDefault(); removeSelected(); }
   if(e.key==='Escape'){ if(!$('modal').hidden) closeModal(); else if(selected){ selected=null; syncUI(); draw(); } }
