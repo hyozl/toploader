@@ -8,6 +8,13 @@
 <meta property="og:title" content="오아라이브 탑꾸 공방">
 <meta property="og:description" content="사진과 크림, 레진 파츠로 나만의 탑로더를 꾸미고 PNG로 저장해요.">
 <meta name="theme-color" content="#fff8ec">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="탑꾸 공방">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -189,6 +196,9 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 
 .modal{position:fixed;inset:0;background:rgba(30,22,45,.5);display:flex;align-items:center;justify-content:center;z-index:50;
   padding:max(20px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(20px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.dlgbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:100%}
+.dlgbtns .btn{flex:1 1 auto}
+.grabber,.quick{display:none}
 .dialog{background:var(--bg);border-radius:24px;padding:18px;max-width:400px;width:100%;display:flex;flex-direction:column;gap:14px;align-items:center;max-height:100%}
 .dialog img{max-height:60vh;width:auto;max-width:100%;object-fit:contain}
 .dialog p{margin:0;text-align:center}
@@ -213,6 +223,22 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   .textin input,.hexrow input{font-size:16px}   /* 아이폰에서 입력할 때 화면이 확대되지 않게 */
   .stickers{grid-template-columns:repeat(5,1fr)}
   .resume{bottom:12%}
+  html,body{overscroll-behavior:none}                  /* 당겨서 새로고침 막기 */
+  #undoBtn{display:none}                                /* 휴대폰은 작업대 왼쪽 위 ↶ 버튼으로 */
+  .sw{width:38px;height:38px}                           /* 손가락으로 누르기 편하게 */
+  .sw.small{width:30px;height:30px}
+  .pill{padding:8px 14px}
+  /* 도구 시트 접기 */
+  .grabber{display:flex;justify-content:center;align-items:center;width:100%;height:20px;border:0;background:transparent;padding:0;margin:0;position:sticky;top:0;z-index:4;background:var(--sheet)}
+  .grabber span{width:40px;height:5px;border-radius:5px;background:var(--soft-line)}
+  .tabs{margin-top:0;top:20px}
+  .sheet.collapsed{overflow:hidden}
+  .sheet.collapsed .pane{display:none}
+  .sheet.collapsed{padding-bottom:10px}
+  /* 작업대 위 되돌리기·다시 실행 */
+  .quick{display:flex;flex-direction:column;gap:6px;position:absolute;left:max(6px,env(safe-area-inset-left,0px));top:6px;z-index:7}
+  .quick .btn{width:38px;height:38px;padding:0;border-radius:12px;font-size:18px;box-shadow:0 3px 0 var(--soft-shadow),0 4px 10px rgba(60,40,90,.12)}
+  .quick .btn:disabled{opacity:.35}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -231,6 +257,10 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   <section class="work" aria-label="작업 영역">
     <div class="stage" id="stage">
       <canvas id="cv" aria-label="꾸미는 중인 탑로더"></canvas>
+      <div class="quick" aria-label="되돌리기">
+        <button class="btn" type="button" id="qUndo" aria-label="되돌리기" disabled>↶</button>
+        <button class="btn" type="button" id="qRedo" aria-label="다시 실행" disabled>↷</button>
+      </div>
       <div class="zoombar" aria-label="화면 확대">
         <button class="btn zb" type="button" id="zoomInBtn" aria-label="확대">＋</button>
         <span class="zl" id="zoomLabel">100%</span>
@@ -250,6 +280,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   </section>
 
   <aside class="sheet" aria-label="꾸미기 도구">
+    <button class="grabber" type="button" id="sheetToggle" aria-label="도구 접기" aria-expanded="true"><span></span></button>
     <div class="tabs" role="tablist">
       <button class="tab" role="tab" id="t-photo" aria-controls="p-photo" aria-selected="true" type="button">사진</button>
       <button class="tab" role="tab" id="t-case" aria-controls="p-case" aria-selected="false" type="button">케이스</button>
@@ -361,8 +392,12 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalMsg">
     <img id="modalImg" alt="완성된 탑로더 이미지">
     <p class="done" id="modalMsg">✨오늘의 탑꾸 저장 완료✨<br><b>#오아라이브탑꾸</b> 자랑하기</p>
-    <p class="note">이미지가 저장되지 않았다면 길게 누르거나 오른쪽 클릭해서 저장하세요.</p>
-    <button class="btn primary" type="button" id="modalClose">닫기</button>
+    <p class="note" id="modalNote">이미지가 저장되지 않았다면 길게 누르거나 오른쪽 클릭해서 저장하세요.</p>
+    <div class="dlgbtns">
+      <button class="btn primary" type="button" id="shareBtn" hidden>사진 저장 · 공유</button>
+      <button class="btn" type="button" id="dlBtn" hidden>파일로 저장</button>
+      <button class="btn" type="button" id="modalClose">닫기</button>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
@@ -996,6 +1031,7 @@ function drawCream(ctx){
 let sq = null;
 function sizeFrom(p, f){ return SMIN + (SMAX-SMIN)*Math.pow(p, .85)*f; }
 function startSqueeze(e){
+  buzz(15);
   const pen = e.pointerType==='pen' && e.pressure > 0;   // 펜은 누르는 힘을 그대로 씀
   const now = performance.now();
   sq = { p: pen ? e.pressure : 0, pen, t: now, lastPt: now, raf: 0 };
@@ -1200,6 +1236,9 @@ function undo(){
 }
 
 const pts = new Map(), ptsC = new Map(); let drag = null, pinch = null;
+// 안드로이드 휴대폰에서 살짝 진동 (아이폰은 지원하지 않아 조용히 넘어가요)
+const buzz = (ms=8)=>{ try{ if(SFX.isOn() && navigator.vibrate) navigator.vibrate(ms); }catch(_){} };
+let lastTap = { t:0, x:0, y:0 };
 cv.addEventListener('pointerdown', e=>{
   cv.setPointerCapture(e.pointerId);
   const p = toLogical(e); pts.set(e.pointerId, p); ptsC.set(e.pointerId, { x:e.clientX, y:e.clientY });
@@ -1221,13 +1260,22 @@ cv.addEventListener('pointerdown', e=>{
   const hit = hitItem(p);
   if(hit){
     selected = hit.id;
-    drag = { mode:'move', it:hit, sx:p.x, sy:p.y, x0:hit.x, y0:hit.y, moved:false };
+    drag = { mode:'move', it:hit, sx:p.x, sy:p.y, x0:hit.x, y0:hit.y, moved:false }; buzz(5);
     if(hit.type==='text') setTab('text');
     if(hit.tint){ partColor = hit.tint; setTab('sticker'); }
     syncUI(); draw(); return;
   }
   const hadSel = !!selected;
   if(selected){ selected = null; syncUI(); draw(); }
+  if(e.pointerType !== 'mouse'){
+    const now = performance.now();
+    if(now - lastTap.t < 320 && Math.hypot(e.clientX-lastTap.x, e.clientY-lastTap.y) < 30){   // 두 번 톡 = 확대/원래대로
+      lastTap.t = 0; drag = null;
+      if(view.z > 1.05){ view.z = 1; view.x = 0; view.y = 0; layoutView(true); } else zoomAt(2.2, e.clientX, e.clientY);
+      buzz(6); return;
+    }
+    lastTap = { t: now, x: e.clientX, y: e.clientY };
+  }
   if(images[state.photo.id]){ if(curTab === 'photo') drag = { mode:'photo', sx:p.x, sy:p.y, x0:state.photo.ox, y0:state.photo.oy, moved:false }; }   // 사진은 사진 탭에서만 움직여요
   else if(inInner(p) && !hadSel && !state.items.length && !state.strokes.length) drag = { mode:'tap', sx:p.x, sy:p.y, moved:false };   // 아무것도 없는 빈 탑로더를 누를 때만 사진 고르기
 });
@@ -1315,6 +1363,7 @@ cv.addEventListener('wheel', e=>{
 /* 장식 추가·편집 */
 function spot(){ const n = state.items.length; return { x: IN.cx + ((n*67)%180 - 90), y: IN.cy + ((n*113)%260 - 130) }; }
 function addSticker(sid){
+  buzz(10);
   SFX.pop(620, .28);
   const p = spot(), it = { id:'i'+(uid++), type:'sticker', sid, x:p.x, y:p.y, scale:1, rot:((state.items.length*37)%30)-15 };
   if(isTintable(sid)) it.tint = partColor;
@@ -1334,6 +1383,7 @@ function addText(){
   if(typing) $('textIn').focus();
 }
 function removeSelected(){
+  buzz(12);
   const i = state.items.findIndex(x=>x.id===selected); if(i<0) return;
   SFX.pop(300, .16);
   state.items.splice(i,1); selected = null; drag = null; record(); syncUI(); draw();
@@ -1384,7 +1434,27 @@ function setTab(name){
   TABS.forEach(t=>{ $('t-'+t).setAttribute('aria-selected', t===name); $('p-'+t).hidden = t!==name; });
   syncPipe();
 }
-TABS.forEach(t=> $('t-'+t).addEventListener('click', ()=> setTab(t)));
+const isPhone = ()=> matchMedia('(max-width:860px)').matches;
+function setSheet(open){
+  const sh = document.querySelector('.sheet');
+  sh.classList.toggle('collapsed', !open);
+  $('sheetToggle').setAttribute('aria-expanded', open); $('sheetToggle').setAttribute('aria-label', open ? '도구 접기' : '도구 펼치기');
+  if(open) sh.scrollTop = 0;
+}
+$('sheetToggle').addEventListener('click', ()=> setSheet(document.querySelector('.sheet').classList.contains('collapsed')));
+TABS.forEach(t=> $('t-'+t).addEventListener('click', ()=>{
+  const sh = document.querySelector('.sheet');
+  if(isPhone() && t === curTab){ setSheet(sh.classList.contains('collapsed')); return; }   // 같은 탭을 다시 누르면 접기·펴기
+  setTab(t); if(isPhone()) setSheet(true);
+}));
+// 시트 손잡이를 아래로 쓸면 접고, 위로 쓸면 펴요
+(()=>{ let y0 = null; const g = $('sheetToggle');
+  g.addEventListener('touchstart', e=>{ y0 = e.touches[0].clientY; }, { passive:true });
+  g.addEventListener('touchend', e=>{ if(y0 == null) return; const dy = e.changedTouches[0].clientY - y0; y0 = null;
+    if(dy > 24) setSheet(false); else if(dy < -24) setSheet(true); }, { passive:true });
+})();
+$('qUndo').addEventListener('click', ()=>{ undo(); buzz(6); });
+$('qRedo').addEventListener('click', ()=>{ redo(); buzz(6); });
 document.querySelector('.tabs').addEventListener('keydown', e=>{
   if(e.key!=='ArrowRight' && e.key!=='ArrowLeft') return;
   const cur = TABS.indexOf(curTab), nx = TABS[(cur + (e.key==='ArrowRight'?1:TABS.length-1))%TABS.length];
@@ -1629,6 +1699,7 @@ document.querySelectorAll('#creamSeg button').forEach(b => b.addEventListener('c
 // 테두리 꾸욱 짜기 버튼
 let bsq = null;
 function startBorderSqueeze(){
+  buzz(15);
   if(bsq) return;
   const E = state.cream.edges;
   if(!(E.top||E.bottom||E.left||E.right)) state.cream.edges = { top:true, bottom:true, left:true, right:true };
@@ -1841,6 +1912,7 @@ function syncCream(){
 function syncUI(){
   syncSel(); syncPhoto(); syncCase(); syncText(); syncCream(); syncPartColor();
   $('undoBtn').disabled = undoStack.length < 2;
+  $('qUndo').disabled = undoStack.length < 2; $('qRedo').disabled = !redoStack.length;
 }
 
 /* 키보드 */
@@ -1930,12 +2002,28 @@ async function savePNG(){
   finally{ btn.disabled = false; }
 }
 let modalUrl = null;
+let saved = null;
+function downloadFile(){ try{ const a = document.createElement('a'); a.href = modalUrl; a.download = saved.name; document.body.appendChild(a); a.click(); a.remove(); }catch(_){} }
 function fallbackSave(blob, name){
   modalUrl && URL.revokeObjectURL(modalUrl);
   modalUrl = URL.createObjectURL(blob);
-  try{ const a = document.createElement('a'); a.href = modalUrl; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }catch(_){}
-  $('modalImg').src = modalUrl; $('modal').hidden = false; $('modalClose').focus(); SFX.tinks(6, .25);
+  let file = null, canShare = false;
+  try{ file = new File([blob], name, { type:'image/png' }); canShare = !!(navigator.canShare && navigator.canShare({ files:[file] })); }catch(_){}
+  saved = { blob, name, file };
+  const phone = matchMedia('(pointer:coarse)').matches;
+  // 휴대폰은 공유 시트의 '이미지 저장'으로 사진첩에 바로 넣는 게 편해서, 자동 다운로드 대신 버튼을 보여줘요
+  if(!(phone && canShare)) downloadFile();
+  $('shareBtn').hidden = !canShare;
+  $('dlBtn').hidden = !(phone && canShare);
+  $('modalNote').textContent = canShare && phone ? '"사진 저장 · 공유"에서 이미지 저장을 누르면 사진첩에 들어가요.' : '이미지가 저장되지 않았다면 길게 누르거나 오른쪽 클릭해서 저장하세요.';
+  $('modalImg').src = modalUrl; $('modal').hidden = false; (canShare ? $('shareBtn') : $('modalClose')).focus(); SFX.tinks(6, .25); buzz(20);
 }
+$('shareBtn').addEventListener('click', async ()=>{
+  if(!saved || !saved.file) return;
+  try{ await navigator.share({ files:[saved.file], title:'오아라이브 탑꾸 공방', text:'#오아라이브탑꾸' }); }
+  catch(err){ if(err && err.name !== 'AbortError') downloadFile(); }
+});
+$('dlBtn').addEventListener('click', downloadFile);
 function closeModal(){ $('modal').hidden = true; }
 $('modalClose').addEventListener('click', closeModal);
 $('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
