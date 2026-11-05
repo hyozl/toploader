@@ -491,6 +491,7 @@ const FONTS = [
   { id:'blackhan', name:'굵게', family:'"Black Han Sans"', weight:400 },
 ];
 const FONT_FALLBACK = ',"Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+const MIN_SCALE = .1;   // 파츠·글씨를 줄일 수 있는 가장 작은 크기 (처음 크기의 10%)
 const STICKER_BASE = 140, TEXT_BASE = 58, LETTER_SP = .08;   // 글자 사이 간격 (글씨 크기 대비)
 
 /* ---------- 상태: 처음엔 아무것도 없는 빈 탑로더 ---------- */
@@ -787,7 +788,8 @@ function drawText3D(ctx, it, S){
 }
 
 function corners(it){
-  const {w,h} = itemSize(it), p = 8, c = Math.cos(it.rot*DEG), sn = Math.sin(it.rot*DEG);
+  let {w,h} = itemSize(it); const p = 8, c = Math.cos(it.rot*DEG), sn = Math.sin(it.rot*DEG);
+  const mn = 30*LW/cssW; w = Math.max(w, mn); h = Math.max(h, mn);   // 아주 작은 파츠도 선택 상자·손잡이가 겹치지 않게
   const pt = (lx,ly)=>({ x: it.x + lx*c - ly*sn, y: it.y + lx*sn + ly*c });
   return { tl:pt(-w/2-p,-h/2-p), tr:pt(w/2+p,-h/2-p), br:pt(w/2+p,h/2+p), bl:pt(-w/2-p,h/2+p) };
 }
@@ -1343,7 +1345,8 @@ function solidAt(img, u, v, rad){        // 이미지 (u,v) 둘레에 보이는 
 }
 function hitItem(p){
   for(let i=state.items.length-1;i>=0;i--){
-    const it = state.items[i], {w,h} = itemSize(it);
+    const it = state.items[i]; let {w,h} = itemSize(it);
+    if(it.id === selected){ const mn = 30*LW/cssW; w = Math.max(w, mn); h = Math.max(h, mn); }   // 아주 작게 줄인 파츠도 잡기 쉽게
     const dx=p.x-it.x, dy=p.y-it.y, c=Math.cos(-it.rot*DEG), s=Math.sin(-it.rot*DEG);
     let lx = dx*c-dy*s; const ly = dx*s+dy*c;
     if(!(Math.abs(lx)<=w/2+6 && Math.abs(ly)<=h/2+6)) continue;
@@ -1448,7 +1451,7 @@ cv.addEventListener('pointermove', e=>{
     drag.it.y = clamp(drag.y0 + p.y-drag.sy, Y0-OUT, Y0+TH+OUT);
   } else if(drag.mode==='xf'){
     const it = drag.it;
-    it.scale = clamp(drag.s0 * Math.hypot(p.x-it.x,p.y-it.y)/drag.d0, .25, 4);
+    it.scale = clamp(drag.s0 * Math.hypot(p.x-it.x,p.y-it.y)/drag.d0, MIN_SCALE, 4);
     it.rot = normRot(drag.r0 + (Math.atan2(p.y-it.y,p.x-it.x)-drag.a0)/DEG);
   } else if(drag.mode==='photo'){
     const lim = IN.w*1.5;
@@ -1508,7 +1511,7 @@ function doPinch(){
     return;
   }
   const [a,b] = [...pts.values()], f = Math.hypot(b.x-a.x,b.y-a.y)/pinch.d0;
-  if(pinch.it){ pinch.it.scale = clamp(pinch.s0*f,.25,4); pinch.it.rot = normRot(pinch.r0 + (Math.atan2(b.y-a.y,b.x-a.x)-pinch.a0)/DEG); }
+  if(pinch.it){ pinch.it.scale = clamp(pinch.s0*f,MIN_SCALE,4); pinch.it.rot = normRot(pinch.r0 + (Math.atan2(b.y-a.y,b.x-a.x)-pinch.a0)/DEG); }
   else if(images[state.photo.id]){ state.photo.zoom = clamp(pinch.s0*f,.5,4); state.photo.rot = normRot(pinch.r0 + (Math.atan2(b.y-a.y,b.x-a.x)-pinch.a0)/DEG); }
   pinch.moved = true; syncPhoto(); draw();
 }
@@ -1519,7 +1522,7 @@ cv.addEventListener('wheel', e=>{
   if(!sel && !(images[state.photo.id] && curTab === 'photo')){ e.preventDefault(); zoomAt(view.z * Math.exp(-e.deltaY*.002), e.clientX, e.clientY); clearTimeout(wheelT); wheelT = setTimeout(zoomHint, 300); return; }   // 마우스 휠 = 화면 확대·축소
   e.preventDefault();
   const f = Math.exp(-e.deltaY*.0015);
-  if(sel) sel.scale = clamp(sel.scale*f,.25,4);
+  if(sel) sel.scale = clamp(sel.scale*f,MIN_SCALE,4);
   else state.photo.zoom = clamp(state.photo.zoom*f,.5,4);
   syncPhoto(); draw();
   clearTimeout(wheelT); wheelT = setTimeout(record, 350);
