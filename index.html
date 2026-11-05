@@ -460,6 +460,9 @@ const STICKERS = [
   { id:'pearlbow', name:'진주 리본', src:'parts/pearlbow.webp', tint:true, ref:.76, hi:.11, depth:1.3, base:1.4 },
   { id:'button',  name:'단추', src:'parts/button.webp', tint:true, ref:.84 },
   { id:'letter',  name:'편지', src:'parts/letter.webp', tint:true, ref:.89, hi:.1, base:1.3 },
+  // metal: 금속 느낌을 살려 색 입히기 (결·명암은 그대로, 빛나는 곳은 하얗게)
+  { id:'cross',   name:'십자가', src:'parts/cross.webp', tint:true, metal:true, ref:.33, base:1.3 },
+  { id:'gear',    name:'톱니바퀴', src:'parts/gear.webp', tint:true, metal:true, ref:.45 },
   { id:'leaf',    name:'나뭇잎', src:'parts/leaf.webp', tint:true, ref:.69, hi:.14 },
   { id:'mic',     name:'마이크', src:'parts/mic.webp', base:1.4 },
   // jelly: 젤리처럼 속이 비치게 (원본 색이어도 반투명, 광택과 가장자리는 진하게)
@@ -544,6 +547,19 @@ function tinted(sid, color){
       d[i]   = r  + (Math.min(255, tr*sh*(1-h) + 255*h) - r )*wR;
       d[i+1] = gg + (Math.min(255, tg*sh*(1-h) + 255*h) - gg)*wR;
       d[i+2] = b  + (Math.min(255, tb*sh*(1-h) + 255*h) - b )*wR;
+    }
+    g.putImageData(im, 0, 0); tintCache.set(key, c);
+    return c;
+  }
+  if(P.metal){   // 금속: 결·흠집·홈의 명암을 그대로 살리고, 밝게 빛나는 곳은 금속 광택처럼 하얗게
+    for(let i=0;i<d.length;i+=4){
+      if(!d[i+3]) continue;
+      const L = (d[i]*.3 + d[i+1]*.59 + d[i+2]*.11)/255;
+      const sh = Math.min(1.35, Math.pow(L/REF, 1.3)) * .68;
+      const t = Math.max(0, Math.min(1, (L - REF - .12)/.32)), h = t*t*(3-2*t)*.85;
+      d[i]   = Math.min(255, tr*sh*(1-h) + 255*h);
+      d[i+1] = Math.min(255, tg*sh*(1-h) + 255*h);
+      d[i+2] = Math.min(255, tb*sh*(1-h) + 255*h);
     }
     g.putImageData(im, 0, 0); tintCache.set(key, c);
     return c;
