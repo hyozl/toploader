@@ -3,6 +3,7 @@
 사진과 크림, 레진 파츠로 탑로더를 꾸미고 완성한 작품을 PNG로 저장하는 웹사이트예요.
 
 - 사이트: https://oalive-topkku.pages.dev/
+- 사이트를 고치고 싶다면 → [다른 사람이 사이트를 수정하는 법](#다른-사람이-사이트를-수정하는-법)
 
 ## 소개
 
@@ -63,14 +64,94 @@ Cloudflare Pages가 이 저장소에 연결되어 있어서, `main`에 올리면
 - 대표 주소 (Cloudflare Pages): https://oalive-topkku.pages.dev/
 - Cloudflare Pages 설정: Framework preset **None**, Build command 비움, Build output directory `/`
 
-## 함께 수정하는 법
+## 다른 사람이 사이트를 수정하는 법
 
-1. 저장소 **Settings → Collaborators**에서 수정할 사람을 초대해요.
-2. 수정하는 사람은 `main`에 바로 올리지 않고, 새 가지(branch)를 만들어 고친 뒤 **Pull Request**를 열어요.
-3. Cloudflare가 Pull Request마다 **미리보기 주소**를 자동으로 만들어 줘요. 실제 사이트는 그대로 두고 바뀐 모습을 먼저 확인할 수 있어요.
-4. 문제없으면 **Merge** 하면 1~2분 뒤 실제 사이트에 반영돼요.
+이 사이트는 **`index.html` 파일 하나**에 화면·기능·파츠 목록이 다 들어 있어요. 빌드나 설치 없이, 이 파일과 `parts/` 폴더만 고치면 돼요.
+`main`에 반영되면 Cloudflare Pages가 1~2분 뒤 실제 사이트(https://oalive-topkku.pages.dev/)에 자동으로 배포해요.
 
-실수로 사이트가 깨지지 않게, **Settings → Branches**에서 `main`에 "Pull Request 승인 후에만 반영" 규칙을 걸어 두는 걸 추천해요.
+### 0) 처음 한 번: 수정할 사람 초대하기 (관리자)
+
+1. 저장소 **Settings → Collaborators → Add people**에서 수정할 사람의 GitHub 아이디를 초대해요.
+2. 초대받은 사람은 메일이나 GitHub 알림에서 **수락**해요.
+3. (추천) **Settings → Branches → Add branch protection rule**에서 `main`에 **Require a pull request before merging**를 켜 두면, 관리자가 확인한 것만 실제 사이트에 반영돼요.
+
+### 1) 어떤 방법으로 고칠지 고르기
+
+| 방법 | 이럴 때 | 필요한 것 |
+|---|---|---|
+| A. GitHub 웹에서 바로 고치기 | 문구·색처럼 한두 줄 바꿀 때 | 브라우저만 |
+| B. AI(Claude 등)에게 시키기 | 기능을 바꾸거나 새로 넣을 때 | Claude Code 같은 AI 코딩 도구 |
+| C. 내 컴퓨터에서 직접 고치기 | 코드를 직접 다룰 수 있을 때 | git, 코드 편집기, Python(미리보기용) |
+
+### A. GitHub 웹에서 바로 고치기 (가장 쉬움)
+
+1. 저장소에서 `index.html`을 열고 오른쪽 위 **연필(✏️) 버튼**을 눌러요.
+2. `Ctrl+F`(맥은 `⌘+F`)로 바꿀 곳을 찾아 고쳐요. 무엇을 검색할지는 아래 [문구·색 바꾸는 법](#문구색-바꾸는-법) 표를 보세요.
+3. **Commit changes…**를 누르고, 아래에서 **Create a new branch for this commit and start a pull request**를 골라요.
+   - 무엇을 바꿨는지 한 줄로 적어 주세요. 예: `저장 완료 문구 수정`
+4. **Propose changes → Create pull request**를 눌러요.
+5. 잠시 뒤 Pull Request 아래 댓글에 Cloudflare가 **미리보기 주소**를 달아 줘요. 그 주소에서 바뀐 모습을 먼저 확인해요. (실제 사이트는 아직 그대로예요)
+6. 괜찮으면 관리자가 **Merge pull request**를 눌러요. 1~2분 뒤 실제 사이트에 반영돼요.
+
+파츠 이미지 추가처럼 파일을 올릴 때는 해당 폴더(`parts/`)에서 **Add file → Upload files**를 쓰면 돼요. ([파츠 추가하는 법](#파츠-추가하는-법) 참고)
+
+### B. AI(Claude 등)에게 시키기
+
+1. AI 코딩 도구에 이 저장소(`hyozl/toploader`)를 연결하거나 내려받아요.
+2. 원하는 걸 말로 설명해요. 예:
+   - "파츠 목록에 `parts/moon.webp`를 '달'이라는 이름으로 추가하고 색 바꾸기 되게 해 줘"
+   - "크림 탭의 진주 크기를 조금 키워 줘"
+3. AI에게 **새 가지(branch)에 올리고 Pull Request를 열어 달라**고 해요.
+4. 나머지는 A의 5~6번과 같아요. 미리보기 주소에서 확인한 뒤 Merge 해요.
+
+AI에게 함께 알려 주면 좋은 것:
+- "`index.html` 한 파일에 HTML·CSS·JS가 다 들어 있어"
+- "모바일(아이폰·안드로이드)에서 쓰는 사람이 많으니 휴대폰 화면에서도 확인해 줘"
+- "화면 문구는 한국어로, 쉬운 말로"
+
+### C. 내 컴퓨터에서 직접 고치기
+
+```bash
+git clone https://github.com/hyozl/toploader.git
+cd toploader
+git switch -c fix/고칠-내용          # 새 가지 만들기
+python3 -m http.server 8000          # 미리보기 서버
+# 브라우저에서 http://localhost:8000 열고, index.html 고친 뒤 새로고침해서 확인
+git add -A
+git commit -m "무엇을 바꿨는지 한 줄"
+git push -u origin fix/고칠-내용
+```
+
+GitHub에 들어가 **Compare & pull request**를 눌러 Pull Request를 열어요. 그 뒤는 A의 5~6번과 같아요.
+
+> `index.html`을 더블클릭해서 열면 파츠 색 바꾸기와 저장이 막혀요(브라우저 보안 규칙). 꼭 위처럼 서버로 열어 주세요.
+
+### 2) Merge 전에 확인할 것
+
+미리보기 주소에서 아래를 한 번씩 눌러 봐요. **휴대폰으로도 꼭** 열어 보세요.
+
+- [ ] 사진 넣기 → 크기·회전 조절
+- [ ] 크림 짜기 (테두리 고르고 "꾸욱 눌러 짜기")
+- [ ] 파츠 붙이기 → 색 바꾸기 → 크기·회전 → 삭제
+- [ ] 글씨 붙이기
+- [ ] 되돌리기·다시 실행
+- [ ] **저장** → 이미지가 잘 저장되는지 (휴대폰은 사진첩까지)
+- [ ] 휴대폰에서 아래 도구 창 접기·펴기, 확대·축소
+
+### 3) 잘못 반영됐을 때 되돌리기
+
+1. 저장소 위쪽 **Pull requests → Closed**에서 문제가 된 Pull Request를 열어요.
+2. 맨 아래 **Revert** 버튼을 누르면, 되돌리는 Pull Request가 새로 생겨요.
+3. 그걸 Merge 하면 1~2분 뒤 이전 모습으로 돌아가요.
+
+급하면 Cloudflare 대시보드 **Workers & Pages → oalive-topkku → Deployments**에서 예전 배포의 **⋯ → Rollback to this deployment**로 바로 되돌릴 수도 있어요.
+
+### 4) 지켜 주세요
+
+- `main`에 바로 올리지 말고 **꼭 Pull Request**로 올려 주세요.
+- 사진은 서버로 보내지 않는 사이트예요. 사진을 어딘가로 보내는 기능은 넣지 않아요.
+- 비밀번호나 API 키 같은 비밀 정보는 저장소에 올리지 않아요. (`.env`는 올라가지 않게 막혀 있어요)
+- 이미지 파일은 너무 크지 않게 (파츠 한 변 600px 정도, 공유 이미지 `og.jpg`는 1200×630) 올려 주세요.
 
 ## 파츠 추가하는 법
 
