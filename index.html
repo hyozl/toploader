@@ -835,13 +835,8 @@ function drawSelection(ctx){
    ========================================================= */
 const TIPS = [ { id:'star', name:'별깍지' }, { id:'bead', name:'동글' }, { id:'wave', name:'물결' } ];
 const SPRINKLE = ['#ff6fa0','#ffd34d','#6fd0a0','#7fb8ff','#b48cf0','#ffffff'];
-const SMIN = 24, SMAX = 80, BMIN = 40, BMAX = 150, PMAX = 260;
-// 크림 덩어리가 저장 범위를 벗어나지 않는 만큼까지만 커져요 (가운데에서는 아주 크게)
-function edgeRoom(x, y){ return Math.min(PMAX, 2*Math.min(x-(X0-BLEED), X0+TW+BLEED-x, y-(Y0-BLEED), Y0+TH+BLEED-y)/1.08); }
-const creamMode = 'border';                     // 크림은 테두리에만 짜요 (직접 짜기는 없앴어요)
-function isPiping(){ return false; }
+const BMIN = 40, BMAX = 150;   // 테두리 크림 굵기 (꾸욱 누르면 BMIN → BMAX)
 function activeStyle(){ return state.cream.style; }
-function clampPipe(p){ return [ Math.round(clamp(p.x, X0+6, X0+TW-6)*10)/10, Math.round(clamp(p.y, Y0+6, Y0+TH-6)*10)/10 ]; }
 
 // 물결 크림 색: 밝기에 따라 갑자기 바뀌지 않게 한 가지 규칙으로 (그라데이션이 끊기지 않게)
 function ropeShades(h){
@@ -1123,14 +1118,12 @@ function borderStamps(){
   bCache = { key, v:out };
   return out;
 }
-let SEAM = 1;
 function drawLayer(ctx, stamps, st, seed, base){
   const SH = (st.tip==='wave' || st.tip==='shell') && base ? ropeShades : creamShades;
   const solid = st.grad ? null : SH(st.color), cache = {};
   const shadesAt = t => { if(solid) return solid; const k = Math.round(t*48); return cache[k] || (cache[k] = SH(mixHex(st.color, st.color2 || st.color, k/48))); };
   const n = stamps.length;
   const rope = base && stamps.length > 1 && (st.tip==='wave' || st.tip==='shell');   // 물결은 한 줄로 쭉 이어진 크림
-  const runPath = (r, dx=0, dy=0)=>{ ctx.beginPath(); r.pts.forEach((q,i)=> i ? ctx.lineTo(q[0]+dx,q[1]+dy) : ctx.moveTo(q[0]+dx,q[1]+dy)); if(r.closed) ctx.closePath(); };
   if(rope){
     const w = stamps[0].s, lines = ropeLayer(ctx, stamps.runs, w, st, shadesAt), tops = [];
     // 진주·스프링클은 구불구불한 크림 위에 올라가게
@@ -1175,40 +1168,6 @@ function drawCream(ctx){
   state.strokes.forEach((st,i) => drawLayer(ctx, stampsAlong(st.points, st.tip, false), st, i+2));
 }
 
-/* 꾸욱 짜기: 누르고 있는 시간만큼 크림이 나옴 */
-let sq = null;
-function sizeFrom(p, f){ return SMIN + (SMAX-SMIN)*Math.pow(p, .85)*f; }
-function startSqueeze(e){
-  buzz(15);
-  const pen = e.pointerType==='pen' && e.pressure > 0;   // 펜은 누르는 힘을 그대로 씀
-  const now = performance.now();
-  sq = { p: pen ? e.pressure : 0, pen, t: now, lastPt: now, raf: 0 };
- 
-  const tick = t => {
-    if(!sq || !drag || drag.mode!=='pipe') return;
-    const dt = (t - sq.t)/1000; sq.t = t;
-    if(!sq.pen) sq.p = Math.min(1, sq.p + dt/0.35);
-    const last = drag.st.points[drag.st.points.length-1];
-    if(t - sq.lastPt > 40){   // 한 자리에서 누르고 있으면 손을 뗄 때까지 계속 부풀어요
-      const grow = sq.p >= 1 ? last[2] + dt*80 : sizeFrom(sq.p, 1);
-      const next = Math.min(Math.max(last[2], grow), edgeRoom(last[0], last[1]));
-      if(next > last[2]){ last[2] = Math.round(next*10)/10; draw(); }
-    }
-    sq.raf = requestAnimationFrame(tick);
-  };
-  sq.raf = requestAnimationFrame(tick);
-}
-function stopSqueeze(){ if(sq){ cancelAnimationFrame(sq.raf); sq = null; } }
-function pipeMove(p, e){
-  const q = clampPipe(p), last = drag.last, d = Math.hypot(q[0]-last[0], q[1]-last[1]);
-  if(d < 3 || drag.st.points.length >= 8000) return;
-  const now = performance.now();
-  if(sq && sq.pen && e.pressure > 0) sq.p = e.pressure;
-  const speed = d / Math.max(8, now - (sq ? sq.lastPt : now-16));
-  const target = sizeFrom(sq ? sq.p : .5, clamp(1.15 - speed*.16, .62, 1));
-  const pt = [q[0], q[1], Math.round(Math.min(last[2]*.45 + target*.55, edgeRoom(q[0], q[1]))*10)/10];
-  drag.st.points.push(pt); drag.last = pt; if(sq) sq.lastPt = now;
-}
 
 /* =========================================================
    화면 캔버스와 조작
@@ -1234,7 +1193,6 @@ const SFX = (()=>{
     return ac;
   }
   const noise = a => { const s = a.createBufferSource(); s.buffer = nbuf; s.loop = true; s.loopStart = Math.random(); return s; };
-  const brown = a => { const s = a.createBufferSource(); s.buffer = bbuf; s.loop = true; return s; };
   const env = (g, t, peak, atk, dec) => { g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t+atk); g.gain.exponentialRampToValueAtTime(.0001, t+atk+dec); };
   // 톡: 레진 파츠를 올려놓는 소리
   function pop(freq=640, vol=.25){
@@ -1414,13 +1372,6 @@ let lastTap = { t:0, x:0, y:0 };
 cv.addEventListener('pointerdown', e=>{
   try{ cv.setPointerCapture(e.pointerId); }catch(_){}
   const p = toLogical(e); pts.set(e.pointerId, p); ptsC.set(e.pointerId, { x:e.clientX, y:e.clientY });
-  if(isPiping()){
-    if(drag && drag.mode==='pipe') return;
-    if(selected){ selected = null; syncUI(); }
-    const q = [...clampPipe(p), SMIN], st = { ...brush, pearlSeed: newSeed(), sprinkleSeed: newSeed(), points:[q] };
-    state.strokes.push(st);
-    drag = { mode:'pipe', st, last:q, moved:true }; startSqueeze(e); draw(); return;
-  }
   if(pts.size === 2){ startPinch(); drag = null; return; }
   if(pts.size > 2) return;
   const sel = getSel();
@@ -1462,7 +1413,6 @@ cv.addEventListener('pointermove', e=>{
     view.x = drag.x0 + c.x - drag.cx; view.y = drag.y0 + c.y - drag.cy; drag.moved = true; layoutView(false); return;
   }
   if(drag.mode==='tap'){ if(Math.hypot(p.x-drag.sx, p.y-drag.sy) > 20*LW/cssW) drag = null; return; }   // 손가락이 미끄러지면 사진 고르기 취소
-  if(drag.mode==='pipe') pipeMove(p, e);
   else if(drag.mode==='move'){
     drag.it.x = clamp(drag.x0 + p.x-drag.sx, X0-OUT, X0+TW+OUT);
     drag.it.y = clamp(drag.y0 + p.y-drag.sy, Y0-OUT, Y0+TH+OUT);
@@ -1483,7 +1433,6 @@ function endPointer(e){
   if(drag){
     if(drag.mode==='tap'){ drag = null; if(e.type==='pointerup' && performance.now() - (window.__pickAt||0) > 800){ window.__pickAt = performance.now(); $('fileIn').click(); } return; }
     if(drag.mode==='pan'){ drag = null; cv.style.cursor = ''; return; }
-    if(drag.mode==='pipe') stopSqueeze();
     if(drag.mode==='move' && drag.moved) SFX.pop(480, .13);
     if(drag.moved) record();
     drag = null;
@@ -1499,7 +1448,6 @@ cv.addEventListener('pointercancel', endPointer);
 cv.addEventListener('lostpointercapture', e=>{ if(pts.has(e.pointerId)) endPointer(e); });
 
 function hoverCursor(p){
-  if(isPiping()){ cv.style.cursor = 'crosshair'; return; }
   const sel = getSel();
   let c = images[state.photo.id] ? (curTab === 'photo' ? 'grab' : 'default') : (inInner(p) ? 'pointer' : 'default');
   if(view.z > 1.001 && !(images[state.photo.id] && curTab === 'photo')) c = 'grab';   // 확대했을 땐 끌어서 화면 이동
