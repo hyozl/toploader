@@ -32,6 +32,7 @@
 .
 ├── index.html          # 사이트 전체 (화면, 기능, 파츠 목록)
 ├── manifest.webmanifest # 홈 화면에 추가할 때 쓰는 앱 정보
+├── og.jpg              # 카톡·SNS로 링크를 보낼 때 뜨는 미리보기 이미지 (1200×630)
 ├── icons/              # 홈 화면·탭 아이콘
 ├── parts/              # 파츠 이미지 (배경이 투명한 webp/png)
 │   └── oalive-engrave.png   # 탑로더 위 테두리의 로고 각인
