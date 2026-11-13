@@ -766,7 +766,7 @@ function drawItem(ctx, it, S){
     const img = partImg(it);
     if(img && (img.naturalWidth || (img instanceof HTMLCanvasElement && img.width))){
       const {w,h} = itemSize(it), k = S*it.scale;
-      ctx.shadowColor = 'rgba(50,30,60,.29)'; ctx.shadowBlur = 8.1*k; ctx.shadowOffsetX = 1.35*k; ctx.shadowOffsetY = 5.4*k;   // 파츠 그림자 (진하기·번짐·거리 10% 줄임)
+      ctx.shadowColor = 'rgba(50,30,60,.26)'; ctx.shadowBlur = 7.3*k; ctx.shadowOffsetX = 1.2*k; ctx.shadowOffsetY = 4.9*k;   // 파츠 그림자 (처음보다 약 20% 연하게)
       ctx.drawImage(img,-w/2,-h/2,w,h);
     }
   } else {
