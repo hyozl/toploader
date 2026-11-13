@@ -444,46 +444,46 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
    ========================================================= */
 // ▼ 한 줄에 파츠 하나. 목록 순서대로 화면에 나와요.
 const STICKERS = [
+  // ── 브랜드 (색 고정)
   { id:'oalive',  name:'오아라이브 로고', src:'parts/oalive.webp', base:1.5 },                 // 브랜드 색 고정
   { id:'oa',      name:'OA 심볼', src:'parts/oa.webp' },                                           // 흰색 고정
-  // 색을 바꿀 수 있는 파츠는 tint:true. 흰색 원본에 고른 색을 입히고, 하이라이트는 하얗게 남겨요
-  // ref: 원본 몸통의 평균 밝기 (색을 입힐 때 기준)
+  // ── 레진: 매끈하고 불투명한 레진 파츠
+  // tint:true = 흰색 원본에 고른 색을 입히고, 하이라이트는 하얗게 남겨요. ref = 원본 몸통의 평균 밝기
+  // hi = 하얗게 남길 광택 기준, base = 처음 붙일 때 크기 배율
   { id:'ribbon',  name:'리본',      src:'parts/ribbon.webp',  tint:true, ref:.89 },
   { id:'ribbon2', name:'매듭 리본', src:'parts/ribbon2.webp', tint:true, ref:.85 },
   { id:'ribbon3', name:'롱 리본',   src:'parts/ribbon3.webp', tint:true, ref:.87 },
-  // glass: 투명한 보석. 비치는 정도(알파)는 그대로 두고, 반짝이는 면은 하얗게 남겨요
+  { id:'star',    name:'별', src:'parts/star.webp', tint:true, ref:.81, hi:.06 },
+  { id:'note',    name:'음표', src:'parts/note.webp', tint:true, ref:.84 },
+  { id:'button',  name:'단추', src:'parts/button.webp', tint:true, ref:.84 },
+  { id:'letter',  name:'편지', src:'parts/letter.webp', tint:true, ref:.89, hi:.1, base:1.3 },
+  { id:'cloud',   name:'구름', src:'parts/cloud.webp', tint:true, ref:.90 },
+  { id:'wing',    name:'날개', src:'parts/wing.webp', tint:true, ref:.87 },
+  { id:'feather', name:'깃털', src:'parts/feather.webp', tint:true, ref:.80, hi:.08, base:1.3 },
+  { id:'rose',    name:'장미', src:'parts/rose.webp', tint:true, ref:.85, hi:.08 },
+  // only:'white' = 하얀 꽃잎만 색이 바뀌고 노란 가운데는 그대로 / only:'red' = 빨간 열매만 바뀌고 꼭지·잎은 그대로
+  { id:'daisy',   name:'데이지', src:'parts/daisy.webp', tint:true, ref:.87, only:'white' },
+  { id:'cherry',  name:'체리', src:'parts/cherry.webp', tint:true, only:'red', vref:.82 },
+  { id:'rainbow', name:'무지개', src:'parts/rainbow.webp' },                          // 색 고정
+  // ── 진주: 은은한 진주광을 살리려고 hi를 높게
+  { id:'pearlheart', name:'진주 하트', src:'parts/pearlheart.webp', tint:true, ref:.80, hi:.11, depth:1.3 },
+  { id:'pearlbow', name:'진주 리본', src:'parts/pearlbow.webp', tint:true, ref:.76, hi:.11, depth:1.3, base:1.4 },
+  // ── 보석·유리 (glass): 비치는 정도는 그대로 두고, 반짝이는 면은 하얗게
   { id:'gem',     name:'물방울 보석', src:'parts/gem.webp', tint:true, ref:.78, glass:true },
   { id:'gem2',    name:'동그라미 보석', src:'parts/gem2.webp', tint:true, ref:.79, glass:true },
   { id:'gem3',    name:'하트 보석', src:'parts/gem3.webp', tint:true, ref:.80, glass:true },
-  // only:'red' — 빨간 열매만 색이 바뀌고 초록 꼭지와 잎은 그대로
-  { id:'cherry',  name:'체리', src:'parts/cherry.webp', tint:true, only:'red', vref:.82 },
-  { id:'wing',    name:'날개', src:'parts/wing.webp', tint:true, ref:.87 },
-  { id:'cloud',   name:'구름', src:'parts/cloud.webp', tint:true, ref:.90 },
-  { id:'rainbow', name:'무지개', src:'parts/rainbow.webp' },                          // 색 고정
-  // only:'white' — 하얀 꽃잎만 색이 바뀌고 노란 가운데는 그대로
-  { id:'daisy',   name:'데이지', src:'parts/daisy.webp', tint:true, ref:.87, only:'white' },
-  // hi: 하얗게 남길 광택의 기준 (진주는 은은한 진주광을 살리려고 높게)
-  { id:'pearlheart', name:'진주 하트', src:'parts/pearlheart.webp', tint:true, ref:.80, hi:.11, depth:1.3 },
-  { id:'rose',    name:'장미', src:'parts/rose.webp', tint:true, ref:.85, hi:.08 },
-  // base: 처음 붙일 때 크기 배율 (가로로 긴 체인은 크게)
-  { id:'chain',   name:'체인', src:'parts/chain.webp', tint:true, ref:.62, depth:1.15, hi:.25, base:2.6 },
   { id:'clover',  name:'네잎클로버', src:'parts/clover.webp', tint:true, ref:.78, glass:true },
-  { id:'feather', name:'깃털', src:'parts/feather.webp', tint:true, ref:.80, hi:.08, base:1.3 },
   { id:'butterfly', name:'나비', src:'parts/butterfly.webp', tint:true, ref:.76, glass:true },
-  { id:'star',    name:'별', src:'parts/star.webp', tint:true, ref:.81, hi:.06 },
-  { id:'note',    name:'음표', src:'parts/note.webp', tint:true, ref:.84 },
-  { id:'pearlbow', name:'진주 리본', src:'parts/pearlbow.webp', tint:true, ref:.76, hi:.11, depth:1.3, base:1.4 },
-  { id:'button',  name:'단추', src:'parts/button.webp', tint:true, ref:.84 },
-  { id:'letter',  name:'편지', src:'parts/letter.webp', tint:true, ref:.89, hi:.1, base:1.3 },
-  // metal: 금속 느낌을 살려 색 입히기 (결·명암은 그대로, 빛나는 곳은 하얗게)
-  { id:'cross',   name:'십자가', src:'parts/cross.webp', tint:true, metal:true, ref:.33, base:1.3 },
-  { id:'gear',    name:'톱니바퀴', src:'parts/gear.webp', tint:true, metal:true, ref:.45 },
-  { id:'leaf',    name:'나뭇잎', src:'parts/leaf.webp', tint:true, ref:.69, hi:.14 },
-  { id:'mic',     name:'마이크', src:'parts/mic.webp', base:1.4 },
-  // jelly: 젤리처럼 속이 비치게 (원본 색이어도 반투명, 광택과 가장자리는 진하게)
+  { id:'leaf',    name:'나뭇잎', src:'parts/leaf.webp', tint:true, ref:.86, hi:.1, glass:true },
+  // ── 젤리 (jelly): 원본 색이어도 속이 반쯤 비치게
   { id:'bunny',   name:'젤리 토끼', src:'parts/bunny.webp', tint:true, ref:.80, glass:true, jelly:true },
   { id:'cat',     name:'젤리 고양이', src:'parts/cat.webp', tint:true, ref:.83, glass:true, jelly:true },
-  { id:'jellybear', name:'젤리 곰', src:'parts/jellybear.webp', tint:true, ref:.82, glass:true, jelly:true },                             // 색 고정
+  { id:'jellybear', name:'젤리 곰', src:'parts/jellybear.webp', tint:true, ref:.82, glass:true, jelly:true },
+  // ── 금속 (metal): 결·흠집·명암은 그대로, 빛나는 곳은 금속 광택처럼
+  { id:'chain',   name:'체인', src:'parts/chain.webp', tint:true, ref:.62, depth:1.15, hi:.25, base:2.6 },
+  { id:'cross',   name:'십자가', src:'parts/cross.webp', tint:true, metal:true, ref:.33, base:1.3 },
+  { id:'gear',    name:'톱니바퀴', src:'parts/gear.webp', tint:true, metal:true, ref:.45 },
+  { id:'mic',     name:'마이크', src:'parts/mic.webp', base:1.4 },
 ];
 
 /* ---------- 고정 치수 (논리 좌표) ---------- */
@@ -1648,7 +1648,7 @@ $('glitterBtn').addEventListener('click', ()=>{ state.glitter = !state.glitter; 
 
 /* 스티커 */
 const myStickers = [];          // 내 사진으로 만든 파츠 (이 기기 메모리에만 있음)
-let myOutline = true;
+let myOutline = false;   // 내 사진 파츠: 흰 테두리는 기본으로 끄고, 원할 때만 켜요
 function stickerButton(id, src, label, mine){
   const b = document.createElement('button'); b.type='button'; b.className='st'+(mine?' mine':'');
   const im = document.createElement('img'); im.alt = ''; im.src = src; b.appendChild(im);
