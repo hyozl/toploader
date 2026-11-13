@@ -251,9 +251,10 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   .sheet.collapsed{padding-bottom:10px;cursor:pointer}
   .sheet.collapsed .grabber span{background:var(--accent, #a98be8)}
   /* 작업대 위 되돌리기·다시 실행 */
-  .quick{display:flex;flex-direction:column;gap:6px;position:absolute;left:max(6px,env(safe-area-inset-left,0px));top:6px;z-index:7}
-  .quick .btn{width:38px;height:38px;padding:0;border-radius:12px;font-size:18px;box-shadow:0 3px 0 var(--soft-shadow),0 4px 10px rgba(60,40,90,.12)}
-  .quick .btn:disabled{opacity:.35}
+  .quick{display:flex;flex-direction:row;gap:2px;position:absolute;left:max(2px,env(safe-area-inset-left,0px));top:2px;z-index:7}
+  .quick button{display:grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:none;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .15s,background .15s}
+  .quick button:active:not(:disabled){background:rgba(120,100,160,.12);color:var(--ink)}
+  .quick button:disabled{opacity:.35;cursor:default}
 }
 /* 휴대폰: 알림은 작업대 위쪽에 띄워서 아래 도구를 가리지 않게 */
 @media (max-width:860px){
@@ -288,8 +289,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
     <div class="stage" id="stage">
       <canvas id="cv" aria-label="꾸미는 중인 탑로더"></canvas>
       <div class="quick" aria-label="되돌리기">
-        <button class="btn" type="button" id="qUndo" aria-label="되돌리기" disabled>↶</button>
-        <button class="btn" type="button" id="qRedo" aria-label="다시 실행" disabled>↷</button>
+        <button type="button" id="qUndo" aria-label="되돌리기" disabled><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" id="qRedo" aria-label="다시 실행" disabled><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
       <div class="zoombar" aria-label="화면 확대">
         <button class="btn zb" type="button" id="zoomInBtn" aria-label="확대">＋</button>
