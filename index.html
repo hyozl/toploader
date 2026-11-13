@@ -213,6 +213,9 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .dialog{background:var(--bg);border-radius:24px;padding:18px;max-width:400px;width:100%;display:flex;flex-direction:column;gap:14px;align-items:center;max-height:100%;overflow-y:auto;overscroll-behavior:contain}
 .dialog img{max-height:min(60vh,calc(100dvh - 330px));min-height:160px;width:auto;max-width:100%;object-fit:contain;flex:0 1 auto}
 .dialog p{margin:0;text-align:center}
+.dialog{position:relative}
+.dlgx{position:absolute;top:8px;right:8px;width:36px;height:36px;border:0;border-radius:50%;background:none;color:var(--muted);font-size:17px;cursor:pointer;z-index:1}
+.dlgx:active{background:rgba(120,100,160,.12)}
 .done{font-size:16px;font-weight:800;line-height:1.55;color:var(--ink)}
 .done b{color:var(--accent)}
 .dialog .note{text-align:center}
@@ -421,6 +424,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 
 <div class="modal" id="modal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="modalMsg">
+    <button class="dlgx" type="button" id="modalClose" aria-label="닫기">✕</button>
     <img id="modalImg" alt="완성된 탑로더 이미지">
     <p class="done" id="modalMsg">✨오늘의 탑꾸 저장 완료✨<br><b>#오아라이브탑꾸</b> 자랑하기</p>
     <p class="note" id="modalNote">이미지가 저장되지 않았다면 길게 누르거나 오른쪽 클릭해서 저장하세요.</p>
@@ -429,7 +433,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
       <button class="btn" type="button" id="dlBtn" hidden>파일로 저장</button>
       <button class="btn" type="button" id="inappOpen2" hidden>브라우저로 열기</button>
       <button class="btn" type="button" id="modalSiteShare" title="친구에게 사이트 공유">공유하기</button>
-      <button class="btn" type="button" id="modalClose">닫기</button>
     </div>
   </div>
 </div>
@@ -2215,7 +2218,7 @@ function fallbackSave(blob, name){
     const fr = new FileReader(); fr.onload = ()=>{ $('modalImg').src = fr.result; }; fr.readAsDataURL(blob);
     $('inappOpen2').hidden = !canOpenExternal();
   } else $('modalImg').src = modalUrl;
-  $('modal').hidden = false; (canShare ? $('shareBtn') : $('modalClose')).focus(); SFX.tinks(6, .25); buzz(20);
+  $('modal').hidden = false; (canShare ? $('shareBtn') : $('modalSiteShare')).focus(); SFX.tinks(6, .25); buzz(20);
 }
 $('shareBtn').addEventListener('click', async ()=>{
   if(!saved || !saved.file) return;
@@ -2226,7 +2229,8 @@ $('dlBtn').addEventListener('click', downloadFile);
 $('inappOpen2').addEventListener('click', openExternal);
 function closeModal(){ $('modal').hidden = true; }
 $('modalClose').addEventListener('click', closeModal);
-$('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
+$('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });   // 바깥을 눌러도 닫혀요
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('modal').hidden) closeModal(); });
 $('saveBtn').addEventListener('click', savePNG);
 
 // 예전에 자동 저장해 둔 작업(사진 포함)이 남아 있으면 지워요
