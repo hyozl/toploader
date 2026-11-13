@@ -594,7 +594,7 @@ function tinted(sid, color){
     if(P.jelly){
       if(color.toLowerCase() === '#ffffff'){ d[i] = o0; d[i+1] = o1; d[i+2] = o2; }        // 원본 색은 색은 그대로, 투명도만
       const edge = Math.max(0, Math.min(1, (REF - L)/.18));                              // 그늘진 가장자리는 진하게
-      d[i+3] = d[i+3] * Math.min(1, .5 + .5*Math.max(h, edge));                          // 속은 젤리처럼 비치게
+      d[i+3] = d[i+3] * Math.min(1, .8 + .2*Math.max(h, edge));                          // 속은 젤리처럼 살짝만 비치게
     }
   }
   g.putImageData(im, 0, 0); tintCache.set(key, c);
