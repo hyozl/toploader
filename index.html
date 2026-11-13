@@ -207,10 +207,11 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .modal{position:fixed;inset:0;background:rgba(30,22,45,.5);display:flex;align-items:center;justify-content:center;z-index:50;
   padding:max(20px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(20px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .dlgbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:100%}
-.dlgbtns .btn{flex:1 1 auto}
+.dlgbtns .btn{flex:1 1 0;min-width:0;padding-inline:8px;white-space:nowrap}
+.dlgbtns #dlBtn,.dlgbtns #inappOpen2{flex-basis:100%;order:5}   /* 보조 버튼은 아래 한 줄로 */
 .grabber,.quick{display:none}
-.dialog{background:var(--bg);border-radius:24px;padding:18px;max-width:400px;width:100%;display:flex;flex-direction:column;gap:14px;align-items:center;max-height:100%}
-.dialog img{max-height:60vh;width:auto;max-width:100%;object-fit:contain}
+.dialog{background:var(--bg);border-radius:24px;padding:18px;max-width:400px;width:100%;display:flex;flex-direction:column;gap:14px;align-items:center;max-height:100%;overflow-y:auto;overscroll-behavior:contain}
+.dialog img{max-height:min(60vh,calc(100dvh - 330px));min-height:160px;width:auto;max-width:100%;object-fit:contain;flex:0 1 auto}
 .dialog p{margin:0;text-align:center}
 .done{font-size:16px;font-weight:800;line-height:1.55;color:var(--ink)}
 .done b{color:var(--accent)}
@@ -424,10 +425,10 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
     <p class="done" id="modalMsg">✨오늘의 탑꾸 저장 완료✨<br><b>#오아라이브탑꾸</b> 자랑하기</p>
     <p class="note" id="modalNote">이미지가 저장되지 않았다면 길게 누르거나 오른쪽 클릭해서 저장하세요.</p>
     <div class="dlgbtns">
-      <button class="btn primary" type="button" id="shareBtn" hidden>사진 저장 · 공유</button>
+      <button class="btn primary" type="button" id="shareBtn" hidden>저장하기</button>
       <button class="btn" type="button" id="dlBtn" hidden>파일로 저장</button>
       <button class="btn" type="button" id="inappOpen2" hidden>브라우저로 열기</button>
-      <button class="btn" type="button" id="modalSiteShare">친구에게 사이트 공유</button>
+      <button class="btn" type="button" id="modalSiteShare" title="친구에게 사이트 공유">공유하기</button>
       <button class="btn" type="button" id="modalClose">닫기</button>
     </div>
   </div>
@@ -2207,7 +2208,7 @@ function fallbackSave(blob, name){
   if(!(phone && canShare) && !IN_APP) downloadFile();
   $('shareBtn').hidden = !canShare;
   $('dlBtn').hidden = !(phone && canShare);
-  $('modalNote').textContent = canShare && phone ? '"사진 저장 · 공유"에서 이미지 저장을 누르면 사진첩에 들어가요.' : (phone ? '저장이 안 됐다면 위 이미지를 길게 눌러 저장하세요.' : '저장이 안 됐다면 위 이미지를 오른쪽 클릭해서 저장하세요.');
+  $('modalNote').textContent = canShare && phone ? '"저장하기"에서 이미지 저장을 누르면 사진첩에 들어가요.' : (phone ? '저장이 안 됐다면 위 이미지를 길게 눌러 저장하세요.' : '저장이 안 됐다면 위 이미지를 오른쪽 클릭해서 저장하세요.');
   if(IN_APP){   // 앱 안 브라우저: 이미지를 길게 눌러 저장할 수 있게 data 주소로 보여 주고, 바깥 브라우저 안내
     $('modalNote').textContent = '이미지를 길게 눌러 저장해 주세요. 안 되면 ' + (canOpenExternal() ? '"브라우저로 열기"를 누른 뒤 다시 저장해 주세요.' : inAppHow());
     $('dlBtn').hidden = true;
