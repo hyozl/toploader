@@ -232,7 +232,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   .stage{height:100%;min-height:0;max-height:none}
   .selrow{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);z-index:6;min-height:0;gap:6px;white-space:nowrap}
   .selrow .btn{padding:6px 11px;font-size:12.5px;box-shadow:0 3px 0 var(--soft-shadow),0 4px 12px rgba(60,40,90,.14)}
-  .sheet{position:static;flex:none;height:min(44dvh,400px);max-height:44dvh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border-radius:24px;padding-top:0}
+  .sheet{position:static;flex:none;height:min(41dvh,380px);max-height:41dvh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border-radius:24px;padding-top:0}
   .tabs{position:sticky;top:0;z-index:3;margin-top:10px;box-shadow:0 -10px 0 var(--sheet)}
   .pane{padding-top:12px;gap:14px}
   .textin input,.hexrow input{font-size:16px}   /* 아이폰에서 입력할 때 화면이 확대되지 않게 */
@@ -268,7 +268,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   .stage{height:100%;min-height:0;max-height:none}
   .sheet{flex:none;width:min(46vw,380px);height:auto;max-height:none;overflow-y:auto}
   .sheet.collapsed{height:auto}
-  .toast{top:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+  .toast{top:calc(8px + env(safe-area-inset-top,0px));bottom:auto}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -333,7 +333,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         <button class="link" type="button" id="photoCenter">가운데로</button>
         <button class="link" type="button" id="photoRemove">사진 빼기</button>
       </div>
-      <p class="note">사진은 이 탭에서만 끌어 옮길 수 있어요. 다른 탭에서는 사진이 고정돼요. 사진은 이 기기 밖으로 나가지 않아요.</p>
+      <p class="note">사진은 이 탭에서만 움직여요. 사진은 기기 밖으로 나가지 않아요.</p>
     </div>
 
     <!-- 케이스 -->
@@ -345,6 +345,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
     <!-- 크림 -->
     <div class="pane" role="tabpanel" id="p-cream" aria-labelledby="t-cream" hidden>
       <div class="group" id="creamBorderBox">
+        <span class="label">크림 짤 테두리</span>
         <div class="pills" id="edgeRow"></div>
         <button class="btn primary wide" type="button" id="squeezeBtn">꾸욱 눌러 짜기</button>
         <div class="meter" aria-hidden="true"><span id="meterFill"></span></div>
@@ -1254,7 +1255,9 @@ const view = { z:1, x:0, y:0 }, ZMIN = 1, ZMAX = 5;
 let baseK = 1;
 function layoutView(sharp){
   const sw = stage.clientWidth - 8, sh = stage.clientHeight - 8;
-  baseK = Math.min(sw/LW, sh/LH);
+  // 휴대폰: 바깥 여백까지 다 넣지 않고 탑로더(+크림이 나오는 만큼)에 맞춰 크게 보여요
+  const FM = 48, fitW = isPhone() ? TW + FM*2 : LW, fitH = isPhone() ? TH + FM*2 : LH;
+  baseK = Math.min(sw/fitW, sh/fitH);
   cssW = Math.max(100, Math.floor(LW*baseK*view.z));
   const cssH = Math.floor(LH*baseK*view.z);
   cv.style.width = cssW+'px'; cv.style.height = cssH+'px';
@@ -1842,6 +1845,9 @@ function setCreamProp(k, v, commit){
   if(commit) record(); draw();
   syncCream();
 }
+{ const b = document.createElement('button'); b.type='button'; b.className='pill'; b.id='edgeAll'; b.textContent='전체';
+  b.addEventListener('click', ()=>{ const E = state.cream.edges, all = E.top && E.bottom && E.left && E.right; ['top','bottom','left','right'].forEach(k => E[k] = !all); record(); syncCream(); draw(); });
+  $('edgeRow').appendChild(b); }
 [['top','위'],['bottom','아래'],['left','왼쪽'],['right','오른쪽']].forEach(([e,label])=>{
   const b = document.createElement('button'); b.type='button'; b.className='pill'; b.dataset.e=e; b.textContent=label;
   b.addEventListener('click', ()=>{ state.cream.edges[e] = !state.cream.edges[e]; record(); syncCream(); draw(); });
@@ -2039,7 +2045,8 @@ function syncCreamColors(){
 function syncCream(){
   const st = activeStyle();
   if(!st.grad) editStop = 'a';
-  document.querySelectorAll('#edgeRow .pill').forEach(b => pressed(b, state.cream.edges[b.dataset.e]));
+  document.querySelectorAll('#edgeRow .pill[data-e]').forEach(b => pressed(b, state.cream.edges[b.dataset.e]));
+  { const E = state.cream.edges; pressed($('edgeAll'), E.top && E.bottom && E.left && E.right); }
   document.querySelectorAll('#tipRow .tipbtn').forEach(b => pressed(b, b.dataset.t===st.tip));
   pressed($('gradBtn'), st.grad);
   $('stopBox').hidden = !st.grad;
@@ -2183,7 +2190,7 @@ function fallbackSave(blob, name){
   if(!(phone && canShare) && !IN_APP) downloadFile();
   $('shareBtn').hidden = !canShare;
   $('dlBtn').hidden = !(phone && canShare);
-  $('modalNote').textContent = canShare && phone ? '"사진 저장 · 공유"에서 이미지 저장을 누르면 사진첩에 들어가요.' : '이미지가 저장되지 않았다면 길게 누르거나 오른쪽 클릭해서 저장하세요.';
+  $('modalNote').textContent = canShare && phone ? '"사진 저장 · 공유"에서 이미지 저장을 누르면 사진첩에 들어가요.' : (phone ? '저장이 안 됐다면 위 이미지를 길게 눌러 저장하세요.' : '저장이 안 됐다면 위 이미지를 오른쪽 클릭해서 저장하세요.');
   if(IN_APP){   // 앱 안 브라우저: 이미지를 길게 눌러 저장할 수 있게 data 주소로 보여 주고, 바깥 브라우저 안내
     $('modalNote').textContent = '이미지를 길게 눌러 저장해 주세요. 안 되면 ' + (canOpenExternal() ? '"브라우저로 열기"를 누른 뒤 다시 저장해 주세요.' : inAppHow());
     $('dlBtn').hidden = true;
