@@ -482,7 +482,7 @@ const STICKERS = [
   { id:'cat',     name:'젤리 고양이', src:'parts/cat.webp', tint:true, ref:.83, glass:true, jelly:true },
   { id:'jellybear', name:'젤리 곰', src:'parts/jellybear.webp', tint:true, ref:.82, glass:true, jelly:true },
   // ── 금속 (metal): 결·흠집·명암은 그대로, 빛나는 곳은 금속 광택처럼
-  { id:'chain',   name:'체인', src:'parts/chain.webp', tint:true, ref:.62, depth:1.15, hi:.25, base:2.6 },
+  { id:'chain',   name:'체인', src:'parts/chain.webp', tint:true, ref:.62, depth:1.15, hi:.25, base:2.6, thumb:'rotate(-35deg) scale(3.4)' },   // thumb: 목록 칸에서만 크게 보이게
   { id:'cross',   name:'십자가', src:'parts/cross.webp', tint:true, metal:true, ref:.33, base:1.3 },
   { id:'gear',    name:'톱니바퀴', src:'parts/gear.webp', tint:true, metal:true, ref:.45 },
   { id:'mic',     name:'마이크', src:'parts/mic.webp', base:1.4 },
@@ -1651,9 +1651,9 @@ $('glitterBtn').addEventListener('click', ()=>{ state.glitter = !state.glitter; 
 /* 스티커 */
 const myStickers = [];          // 내 사진으로 만든 파츠 (이 기기 메모리에만 있음)
 let myOutline = false;   // 내 사진 파츠: 흰 테두리는 기본으로 끄고, 원할 때만 켜요
-function stickerButton(id, src, label, mine){
+function stickerButton(id, src, label, mine, thumb){
   const b = document.createElement('button'); b.type='button'; b.className='st'+(mine?' mine':'');
-  const im = document.createElement('img'); im.alt = ''; im.src = src; b.appendChild(im);
+  const im = document.createElement('img'); im.alt = ''; im.src = src; if(thumb) im.style.transform = thumb; b.appendChild(im);
   b.setAttribute('aria-label', label+' 붙이기'); b.title = label;
   b.addEventListener('click', ()=> addSticker(id));
   return b;
@@ -1666,7 +1666,7 @@ function renderStickerGrid(){
   inp.addEventListener('change', e=>{ makeSticker(e.target.files[0]); e.target.value = ''; });
   add.appendChild(inp); g.appendChild(add);
   myStickers.forEach((m,i)=> g.appendChild(stickerButton(m.id, m.src, '내 파츠 '+(myStickers.length-i), true)));
-  STICKERS.forEach(s=>{ const t = s.tint ? tinted(s.id, partColor) : null; let src = s.src; if(t && t.toDataURL){ try{ src = t.toDataURL(); }catch(_){} } g.appendChild(stickerButton(s.id, src, s.name+' 파츠', false)); });
+  STICKERS.forEach(s=>{ const t = s.tint ? tinted(s.id, partColor) : null; let src = s.src; if(t && t.toDataURL){ try{ src = t.toDataURL(); }catch(_){} } g.appendChild(stickerButton(s.id, src, s.name+' 파츠', false, s.thumb)); });
   $('partsEmpty').hidden = STICKERS.length + myStickers.length > 0;
 }
 function newCanvas(w,h){ const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
