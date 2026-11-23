@@ -1035,6 +1035,16 @@ function wavyRun(run, w){
   }
   return out;
 }
+// 크림 표면 결: 한 번 만든 고운 점무늬를 계속 써요
+let grainCv = null;
+function creamGrain(){
+  if(grainCv) return grainCv;
+  grainCv = document.createElement('canvas'); grainCv.width = grainCv.height = 96;
+  const g = grainCv.getContext('2d'), im = g.createImageData(96, 96);
+  let sd = 12345; const rnd = ()=> (sd = (sd*16807)%2147483647)/2147483647;
+  for(let i=0;i<im.data.length;i+=4){ const v = rnd() < .5 ? 0 : 255; im.data[i]=im.data[i+1]=im.data[i+2]=v; im.data[i+3] = Math.round(rnd()*255); }
+  g.putImageData(im, 0, 0); return grainCv;
+}
 function creamRope(ctx, lines, w, shadesAt){
   let g = ctx;
   // 반투명한 층: 불투명하게 따로 그린 다음 정해진 투명도로 한 번에 얹어요
@@ -1063,6 +1073,9 @@ function creamRope(ctx, lines, w, shadesAt){
   g.shadowColor = 'rgba(55,35,65,.1)'; g.shadowBlur = Math.min(w*.32, 24); g.shadowOffsetX = 0; g.shadowOffsetY = Math.min(w*.04, 3);   // 흐릿하고 은은하게
   g.strokeStyle = shadesAt(.5).dark; g.lineWidth = tw;
   lines.forEach(l => { line(l.q); if(l.closed) g.closePath(); g.stroke(); });
+  // 바닥에 닿는 곳의 짙고 좁은 그늘 (크림이 케이스 위에 얹힌 느낌)
+  g.shadowColor = 'rgba(55,35,65,.16)'; g.shadowBlur = Math.min(w*.06, 5); g.shadowOffsetY = Math.min(w*.02, 1.5);
+  lines.forEach(l => { line(l.q); if(l.closed) g.closePath(); g.stroke(); });
   g.shadowColor = 'transparent';
   // 2) 둥근 몸통: 가장자리부터 가운데까지 여러 겹을 조금씩 밝게 겹쳐서, 통통한 크림 줄기처럼 매끈하게
   const N = 18, tone = (cs, t)=> t < .4 ? shade(cs.base, .88 + .12*t/.4) : mixW(cs.base, Math.min(.5, (t-.4)/.6*.5));   // 가장자리는 살짝 어둡게, 가운데로 갈수록 하얗게
@@ -1070,15 +1083,21 @@ function creamRope(ctx, lines, w, shadesAt){
     const t = k/(N-1), wk = tw*(1 - t*.8), ox = -tw*.09*Math.pow(t, 1.3), oy = -tw*.12*Math.pow(t, 1.3);
     pass((p,cs)=>{ g.strokeStyle = tone(cs, t); g.lineWidth = wk; line(p, ox, oy); g.stroke(); });
   }
-  // 3) 깍지 결: 크림 줄기를 따라 아주 은은하게 두 줄
-  g.lineCap = 'butt';
-  const par = (q, o, dx, dy)=>{ g.beginPath(); q.forEach((p,i)=>{ const x = p[0] + p[4]*o + dx, y = p[1] + p[5]*o + dy; i ? g.lineTo(x,y) : g.moveTo(x,y); }); };
-  layer(.12, ()=> [-.22, .2].forEach(o => pass((p,cs)=>{ g.strokeStyle = cs.ridge; g.lineWidth = tw*.05; par(p, o*tw, tw*.01, tw*.015); g.stroke(); })));
-  layer(.3,  ()=> [-.22, .2].forEach(o => pass((p,cs)=>{ g.strokeStyle = '#fff'; g.lineWidth = tw*.04; par(p, o*tw, -tw*.015, -tw*.02); g.stroke(); })));
-  // 줄기 꼭대기를 따라 흐르는 가는 광택
+  // 3) 깍지 결: 별깍지로 짠 것처럼 가는 골이 크림을 따라 흐르고, 조금씩 흔들려요 (아주 은은하게)
   g.lineCap = 'round';
-  layer(CREAM_GLOSS*.6, ()=> lines.forEach(l => { g.strokeStyle = "#fff"; g.lineWidth = tw*.06; line(l.q, -tw*.13, -tw*.17); g.stroke(); }));
-  // 4) 볼록한 꼭대기마다 반짝임
+  const par = (q, o, k, dx, dy)=>{ g.beginPath(); q.forEach((p,i)=>{ const oo = o + tw*.018*Math.sin(TAU*k*p[2] + o*7), x = p[0] + p[4]*oo + dx, y = p[1] + p[5]*oo + dy; i ? g.lineTo(x,y) : g.moveTo(x,y); }); };
+  const RG = [[-.3,23],[-.15,31],[0,27],[.15,29],[.3,25]];
+  layer(.1,  ()=> RG.forEach(([o,k]) => pass((p,cs)=>{ g.strokeStyle = cs.ridge; g.lineWidth = tw*.035; par(p, o*tw, k, tw*.008, tw*.012); g.stroke(); })));
+  layer(.28, ()=> RG.forEach(([o,k]) => pass((p,cs)=>{ g.strokeStyle = '#fff'; g.lineWidth = tw*.03; par(p, o*tw, k, -tw*.012, -tw*.016); g.stroke(); })));
+  // 4) 크림 표면의 보송보송한 결 (아주 고운 점무늬를 크림 모양 안에만)
+  layer(.045, ()=>{
+    lines.forEach(l => { g.strokeStyle = '#000'; g.lineWidth = tw*.96; line(l.q); if(l.closed) g.closePath(); g.stroke(); });
+    g.globalCompositeOperation = 'source-in'; g.fillStyle = g.createPattern(creamGrain(), 'repeat');
+    g.save(); g.setTransform(1,0,0,1,0,0); g.fillRect(0, 0, g.canvas.width, g.canvas.height); g.restore();
+  });
+  // 5) 넓고 부드러운 윤기 (실제 크림처럼 번들거리지 않게)
+  layer(.22, ()=> lines.forEach(l => { g.strokeStyle = '#fff'; g.lineWidth = tw*.2; line(l.q, -tw*.12, -tw*.16); g.stroke(); }));
+  // 6) 볼록한 꼭대기마다 은은한 반짝임
   g.fillStyle = '#fff';
   lines.forEach(l => {
     const q = l.q;
@@ -1086,10 +1105,8 @@ function creamRope(ctx, lines, w, shadesAt){
       const v = q[i][3];
       if(Math.abs(v) < .97 || Math.abs(v) < Math.abs(q[i-1][3]) || Math.abs(v) < Math.abs(q[i+1][3])) continue;
       const sg = Math.sign(v), nx = q[i][4]*sg, ny = q[i][5]*sg, ang = Math.atan2(q[i+1][1]-q[i-1][1], q[i+1][0]-q[i-1][0]);
-      g.globalAlpha = CREAM_GLOSS;
-      g.beginPath(); g.ellipse(q[i][0] + nx*tw*.12 - tw*.1, q[i][1] + ny*tw*.12 - tw*.12, tw*.14, tw*.06, ang, 0, Math.PI*2); g.fill();
-      g.globalAlpha = .8;
-      g.beginPath(); g.arc(q[i][0] + nx*tw*.1 - tw*.16, q[i][1] + ny*tw*.1 - tw*.15, tw*.025, 0, Math.PI*2); g.fill();
+      g.globalAlpha = CREAM_GLOSS*.7;
+      g.beginPath(); g.ellipse(q[i][0] + nx*tw*.12 - tw*.1, q[i][1] + ny*tw*.12 - tw*.12, tw*.12, tw*.05, ang, 0, Math.PI*2); g.fill();
     }
   });
   g.restore(); g.globalAlpha = 1;
