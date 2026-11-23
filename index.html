@@ -175,8 +175,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .tipbtn{border:1px solid var(--line);background:var(--chip);border-radius:14px;padding:4px 4px 6px;display:flex;flex-direction:column;align-items:center;font-size:12px;font-weight:700;color:var(--muted)}
 .tipbtn canvas{width:42px;height:42px}
 .tipbtn[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1.5px var(--accent);color:var(--ink)}
-.meter{height:6px;border-radius:6px;background:var(--soft-line);overflow:hidden}
-.meter span{display:block;height:100%;width:0;background:var(--accent)}
 
 .sv{position:relative;height:120px;border-radius:14px;touch-action:none;cursor:crosshair}
 .hue{position:relative;height:18px;border-radius:9px;background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);touch-action:none;cursor:pointer}
@@ -278,6 +276,9 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   .sheet{flex:none;width:min(46vw,380px);height:auto;max-height:none;overflow-y:auto}
   .sheet.collapsed{height:auto}
   .toast{top:calc(8px + env(safe-area-inset-top,0px));bottom:auto}
+  .dialog{gap:8px;padding:14px}
+  .dialog img{min-height:0;max-height:calc(100dvh - 250px)}
+  .dialog .note{font-size:12px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -359,8 +360,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         <span class="label">크림 짤 테두리</span>
         <div class="pills" id="edgeRow"></div>
         <button class="btn primary wide" type="button" id="squeezeBtn">꾸욱 눌러 짜기</button>
-        <div class="meter" aria-hidden="true"><span id="meterFill"></span></div>
-        <p class="note">누르는 동안 크림이 두툼해져요. 다시 누르면 새로 짜요.</p>
+        <div class="rng"><label for="creamSize">두께</label><input type="range" id="creamSize" min="40" max="150" step="1" value="100"><output id="creamSizeOut">100</output></div>
+        <p class="note">누르는 동안 크림이 두툼해져요. 짠 뒤에도 두께 막대로 조절할 수 있어요.</p>
       </div>
       <div class="group">
         <span class="label">크림 색</span>
@@ -1804,10 +1805,15 @@ sqBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); try{ sqBtn.setPoi
 sqBtn.addEventListener('keydown', e=>{ if((e.key===' '||e.key==='Enter') && !e.repeat){ e.preventDefault(); startBorderSqueeze(); } });
 sqBtn.addEventListener('keyup', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); stopBorderSqueeze(); } });
 sqBtn.addEventListener('contextmenu', e=> e.preventDefault());
+// 두께 막대: 꾸욱 짜는 동안 같이 움직이고, 짠 뒤에는 직접 끌어서 조절해요
 function syncMeter(){
-  const E = state.cream.edges, on = E.top||E.bottom||E.left||E.right;
-  $('meterFill').style.width = on ? ((state.cream.style.size-BMIN)/(BMAX-BMIN)*100).toFixed(1)+'%' : '0%';
+  const E = state.cream.edges, on = E.top||E.bottom||E.left||E.right, v = Math.round(state.cream.style.size);
+  const r = $('creamSize'); r.disabled = !on;
+  if(document.activeElement !== r || bsq){ r.value = v; }
+  $('creamSizeOut').value = on ? v : '-';
 }
+$('creamSize').addEventListener('input', e=>{ state.cream.style.size = +e.target.value; $('creamSizeOut').value = e.target.value; draw(); });
+$('creamSize').addEventListener('change', ()=>{ record(); syncCream(); });
 
 // 깍지
 const tipCanvases = {};
