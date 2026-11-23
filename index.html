@@ -361,7 +361,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         <div class="pills" id="edgeRow"></div>
         <button class="btn primary wide" type="button" id="squeezeBtn">꾸욱 눌러 짜기</button>
         <div class="rng"><label for="creamSize">두께</label><input type="range" id="creamSize" min="40" max="150" step="1" value="100"><output id="creamSizeOut">100</output></div>
-        <p class="note">누르는 동안 크림이 두툼해져요. 짠 뒤에도 두께 막대로 조절할 수 있어요.</p>
       </div>
       <div class="group">
         <span class="label">크림 색</span>
@@ -871,7 +870,7 @@ function activeStyle(){ return state.cream.style; }
 
 // 물결 크림 색: 밝기에 따라 갑자기 바뀌지 않게 한 가지 규칙으로 (그라데이션이 끊기지 않게)
 function ropeShades(h){
-  return { light:mixW(h,.3), base:h, dark:shade(h,.8), deep:shade(h,.66), ridge:shade(h,.62), hi:mixW(h,.62) };
+  return { light:mixW(h,.3), base:h, dark:shade(h,.88), deep:shade(h,.66), ridge:shade(h,.62), hi:mixW(h,.62) };
 }
 function creamShades(h){
   const [r,g,b] = hexRgb(h), lum = (r*.3+g*.59+b*.11)/255;
@@ -887,12 +886,10 @@ function creamGrad(ctx, r, cs, hx, hy){
 }
 const CREAM_GLOSS = .42;   // 크림 광택 세기 (0~1)
 function specular(ctx, x, y, rx, ry, a=CREAM_GLOSS){ ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, -.6, 0, Math.PI*2); ctx.fill(); }
-function drawStamp(ctx, tip, x, y, r, ang, cs, rot){
+function drawStamp(ctx, tip, x, y, r, ang, cs, rot, base_){
   ctx.save(); ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(60,38,70,.09)';   // 옆 크림과 맞닿는 곳의 그늘 (은은하게)
   if(tip==='shell') tip = 'wave';   // 예전 조개 모양은 물결로
-  if(tip==='wave'){ ctx.fillStyle = 'rgba(60,38,70,.08)'; ctx.beginPath(); ctx.ellipse(r*.05, r*.12, r*1.05, r*.6, ang, 0, Math.PI*2); ctx.fill(); }
-  else { ctx.beginPath(); ctx.ellipse(r*.05, r*.22, r*.98, r*.9, 0, 0, Math.PI*2); ctx.fill(); }
+  if(!base_){ ctx.fillStyle = 'rgba(60,38,70,.06)'; ctx.beginPath(); ctx.ellipse(r*.04, r*.16, r*.98, r*.9, 0, 0, Math.PI*2); ctx.fill(); }   // 테두리 크림은 아래에서 한 번에 그림자를 줘요
   if(tip==='star') rosette(ctx, r, cs, rot);
   else if(tip==='wave') wave(ctx, r, cs, ang);
   else bead(ctx, r, cs);
@@ -1063,7 +1060,7 @@ function creamRope(ctx, lines, w, shadesAt){
   const line = (part, dx=0, dy=0)=>{ g.beginPath(); part.forEach((p,i)=> i ? g.lineTo(p[0]+dx,p[1]+dy) : g.moveTo(p[0]+dx,p[1]+dy)); };
   g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
   // 1) 그림자: 줄 전체를 한 번에 (조각마다 그리면 느려요)
-  g.shadowColor = 'rgba(55,35,65,.14)'; g.shadowBlur = Math.min(w*.18, 14); g.shadowOffsetX = Math.min(w*.02, 2); g.shadowOffsetY = Math.min(w*.06, 5);
+  g.shadowColor = 'rgba(55,35,65,.1)'; g.shadowBlur = Math.min(w*.32, 24); g.shadowOffsetX = 0; g.shadowOffsetY = Math.min(w*.04, 3);   // 흐릿하고 은은하게
   g.strokeStyle = shadesAt(.5).dark; g.lineWidth = tw;
   lines.forEach(l => { line(l.q); if(l.closed) g.closePath(); g.stroke(); });
   g.shadowColor = 'transparent';
@@ -1162,17 +1159,20 @@ function drawLayer(ctx, stamps, st, seed, base){
     stamps = Object.assign(tops, { runs: stamps.runs });
   }
   // 1) 크림이 탑로더 위에 드리우는 그림자: 도톰하게 떠 보이게
-  if(!rope) stamps.forEach(p=>{
-    const r = p.s/2, off = Math.min(r*.22, 6), rad = Math.min(r*1.18, r+9), cx = p.x + off*.3, cy = p.y + off;
-    const g = ctx.createRadialGradient(cx, cy, r*.2, cx, cy, rad);
-    g.addColorStop(0,'rgba(55,35,65,.13)'); g.addColorStop(1,'rgba(55,35,65,0)');
+  if(!rope && !(base && stamps.length > 1)) stamps.forEach(p=>{   // 낱개 크림만 덩어리마다 흐린 그림자
+    const r = p.s/2, cx = p.x + r*.05, cy = p.y + r*.16, rad = r*1.15;
+    const g = ctx.createRadialGradient(cx, cy, r*.3, cx, cy, rad);
+    g.addColorStop(0,'rgba(55,35,65,.08)'); g.addColorStop(1,'rgba(55,35,65,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2); ctx.fill();
   });
   // 1-2) 테두리 크림의 바닥 크림: 덩어리 사이 틈을 메워서 탑로더 테두리가 비치지 않게
   if(base && stamps.length > 1 && !rope){
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     // 그라데이션이면 중간 색으로, 아니면 크림 색의 그늘 톤으로 테두리 경로를 따라 굵게 칠해요
-    ctx.strokeStyle = shadesAt(.5).dark; ctx.lineWidth = stamps[0].s*.8;
+    const w0 = stamps[0].s;
+    ctx.strokeStyle = shadesAt(.5).dark; ctx.lineWidth = w0*.8;
+    // 테두리 전체에 한 번에 드리우는 흐릿한 그림자 (덩어리마다 그리면 울퉁불퉁 얼룩져 보여요)
+    ctx.shadowColor = 'rgba(55,35,65,.12)'; ctx.shadowBlur = Math.min(w0*.35, 26); ctx.shadowOffsetX = 0; ctx.shadowOffsetY = Math.min(w0*.05, 4);
     (stamps.runs || []).forEach(r=>{
       ctx.beginPath(); r.pts.forEach((q,i)=> i ? ctx.lineTo(q[0],q[1]) : ctx.moveTo(q[0],q[1]));
       if(r.closed) ctx.closePath(); ctx.stroke();
@@ -1180,7 +1180,7 @@ function drawLayer(ctx, stamps, st, seed, base){
     ctx.restore();
   }
   // 2) 크림 본체
-  const one = (p,i) => drawStamp(ctx, st.tip, p.x, p.y, p.s/2, p.a, shadesAt(p.t ?? (n>1 ? i/(n-1) : 0)), (i*.9 + seed*1.7) % (Math.PI*2));
+  const one = (p,i) => drawStamp(ctx, st.tip, p.x, p.y, p.s/2, p.a, shadesAt(p.t ?? (n>1 ? i/(n-1) : 0)), (i*.9 + seed*1.7) % (Math.PI*2), base && stamps.length > 1);
   if(!rope) stamps.forEach(one);
   // 3) 토핑
   if(st.sprinkle) stamps.forEach((p,i) => sprinkles(ctx, p.x, p.y, p.s/2, (st.sprinkleSeed||0) + seed*131 + i*7 + 1, p.sp ? 1 : 1.3));
