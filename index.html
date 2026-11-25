@@ -1017,6 +1017,8 @@ function stampsAlong(pts, tip, closed){
 
 // 테두리 크림: 탑로더 테두리 가운데를 따라 짜기
 // 물결 크림: 테두리를 따라 안팎으로 구불구불 오가며 한 줄로 쭉 짠 크림
+// 크림 그라데이션 위치: 왼쪽 위(시작 색) → 오른쪽 아래(끝 색), 45° 사선
+function diagT(x, y){ return clamp(((x - X0) + (y - Y0)) / (TW + TH), 0, 1); }
 function wavyRun(run, w){
   const P = run.pts.slice(); if(run.closed) P.push(P[0]);
   const cum = [0]; for(let i=1;i<P.length;i++) cum.push(cum[i-1] + Math.hypot(P[i][0]-P[i-1][0], P[i][1]-P[i-1][1]));
@@ -1058,7 +1060,7 @@ function creamRope(ctx, lines, w, shadesAt, small){
     const q = l.q, step = 10;
     for(let i=0;i<q.length-1;i+=step){
       const part = q.slice(i, Math.min(q.length, i+step+1)), u = (acc + i)/Math.max(1,total-1);
-      segs.push({ part, cs: shadesAt(l.closed ? 1 - Math.abs(2*q[i][2]-1) : u) });
+      const mp = part[part.length>>1]; segs.push({ part, cs: shadesAt(diagT(mp[0], mp[1])) });
     }
     acc += q.length;
   });
@@ -1147,14 +1149,14 @@ function borderStamps(){
     // 이음매가 모서리에 오지 않게 위 테두리 가운데서 시작해요
     const mid = Math.round(pts.filter(p=>p.e==='top').length/2), loop = pts.slice(mid).concat(pts.slice(0, mid));
     out = stampsAlong(loop.map(p=>[p.x,p.y,sz]), c.style.tip, true);
-    out.forEach((p,i)=>{ const u = i/out.length; p.t = 1 - Math.abs(2*u-1); });   // 한 바퀴 돌아 이음매 없이
+    out.forEach(p=>{ p.t = diagT(p.x, p.y); });   // 그라데이션은 왼쪽 위 → 오른쪽 아래 사선으로
   } else if(flags.some(Boolean)){
     const st = flags.indexOf(false), order = [...pts.keys()].map(i => (i+st)%pts.length);
     let run = [];
     const flush = ()=>{ if(run.length){ out = out.concat(stampsAlong(run, c.style.tip, false)); runs.push({ pts: run.map(q=>[q[0],q[1]]), closed: false }); } run = []; };
     order.forEach(i => { if(flags[i]) run.push([pts[i].x, pts[i].y, sz]); else flush(); });
     flush();
-    out.forEach((p,i)=>{ p.t = out.length>1 ? i/(out.length-1) : 0; });
+    out.forEach(p=>{ p.t = diagT(p.x, p.y); });
   }
   out.runs = runs;
   bCache = { key, v:out };
