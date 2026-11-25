@@ -341,9 +341,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
       <div class="rng"><label for="zoomIn">확대</label><input type="range" id="zoomIn" min="50" max="400" step="1" value="100"><output id="zoomOut">100%</output></div>
       <div class="rng"><label for="rotIn">회전</label><input type="range" id="rotIn" min="-180" max="180" step="1" value="0"><output id="rotOut">0°</output></div>
       <div class="row">
-        <button class="link" type="button" id="photoRot">90° 회전</button>
-        <button class="link" type="button" id="photoStraight">회전 초기화</button>
-        <button class="link" type="button" id="photoCenter">가운데 정렬</button>
         <button class="link" type="button" id="photoRemove">사진 삭제</button>
       </div>
       <p class="note">사진 위치는 사진 탭에서만 옮길 수 있어요.<br>넣은 사진은 서버에 올라가지 않아요.</p>
@@ -1615,9 +1612,6 @@ $('rotIn').addEventListener('input', e=>{ if(!images[state.photo.id]) return; st
 $('rotIn').addEventListener('change', ()=>{ if(images[state.photo.id]) record(); else { toast('먼저 사진을 넣어주세요'); syncPhoto(); } });
 $('zoomIn').addEventListener('change', record);
 const needPhoto = ()=>{ if(images[state.photo.id]) return false; toast('먼저 사진을 넣어주세요'); return true; };
-$('photoRot').addEventListener('click', ()=>{ if(needPhoto()) return; state.photo.rot = normDeg(Math.round(state.photo.rot/90)*90 + 90); record(); syncPhoto(); draw(); });
-$('photoStraight').addEventListener('click', ()=>{ if(needPhoto()) return; state.photo.rot = 0; record(); syncPhoto(); draw(); });
-$('photoCenter').addEventListener('click', ()=>{ if(needPhoto()) return; Object.assign(state.photo,{ox:0,oy:0,zoom:1}); record(); syncPhoto(); draw(); });
 $('photoRemove').addEventListener('click', ()=>{ if(needPhoto()) return; state.photo = { id:null, zoom:1, ox:0, oy:0, rot:0 }; record(); syncUI(); draw(); });
 
 /* 탭 */
