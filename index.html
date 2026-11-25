@@ -1086,26 +1086,27 @@ function wavySides(run, w){
   const P = run.pts.concat([run.pts[0]]), S = run.sides.concat([run.sides[0]]), N = P.length, out = [];
   const cum = [0]; for(let i=1;i<N;i++) cum.push(cum[i-1] + Math.hypot(P[i][0]-P[i-1][0], P[i][1]-P[i-1][1]));
   const total = cum[N-1] || 1, A = w*WAVE_AMP, half = w*.525;
-  // 면별 시작·끝 위치와 반물결 개수 (홀수로 맞춰서 양 끝 물결이 같은 쪽으로 볼록해요)
-  const span = {};
-  for(let i=0;i<N-1;i++){ const e = S[i]; if(!span[e]) span[e] = { a: cum[i], b: cum[i+1] }; span[e].b = cum[i+1]; }   // 마지막(처음과 겹치는 점)은 빼고
-  for(const e in span){ const L = span[e].b - span[e].a; let n = Math.max(1, Math.round(L/half)); if(n % 2 === 0) n += (L/half > n ? 1 : -1); span[e].n = Math.max(1, n); }
+  // 모서리 가운데마다 물결 꼭대기가 오게, 모서리~모서리 구간마다 물결 수를 짝수로 맞춰요
+  //  → 면과 모서리가 끊기지 않고 한 줄로 이어지고, 위아래·좌우가 대칭이에요
+  const mids = [];
+  ['tr','br','bl','tl'].forEach(e => { const idx = []; for(let i=0;i<N-1;i++) if(S[i]===e) idx.push(i); if(idx.length) mids.push(cum[idx[idx.length>>1]]); });
+  mids.sort((x,y)=>x-y);
+  const segs = mids.map((m,i) => { const a = m, b = i < mids.length-1 ? mids[i+1] : mids[0] + total, L = b - a; let n = Math.max(2, Math.round(L/half)); if(n % 2) n += (L/half > n ? 1 : -1); return { a, L, n: Math.max(2, n) }; });
   for(let i=0;i<N;i++){
     const j = Math.min(N-1, i+1), k = Math.max(0, i-1);
     let tx = P[j][0]-P[k][0], ty = P[j][1]-P[k][1]; const tl = Math.hypot(tx,ty) || 1; tx/=tl; ty/=tl;
-    const sp = span[S[i]], straight = S[i].length > 2;   // top·right·bottom·left 는 곧은 면, tr·br… 는 모서리
-    let v = WAVE_CORNER;   // 모서리는 바깥으로 살짝 볼록하게 (탑로더 모서리가 비치지 않게)
-    if(straight){
-      const L = (sp.b - sp.a) || 1, x = i === N-1 ? 0 : clamp(cum[i]-sp.a, 0, L), h = L/sp.n;   // 마지막 점은 처음 점과 같은 자리
-      const e = Math.min(1, Math.min(x, L-x)/(h*.6)), env = e*e*(3-2*e);   // 모서리 쪽으로 갈수록 물결이 부드럽게 잦아들어서 꺾이지 않아요
-      v = Math.sin(Math.PI * sp.n * x/L) * WAVE_DIR * env + WAVE_CORNER * (1 - env);
+    let v = WAVE_DIR;
+    if(segs.length){
+      let x = i === N-1 ? cum[0] : cum[i]; if(x < segs[0].a) x += total;
+      const sg = segs.find(q => x >= q.a && x <= q.a + q.L) || segs[segs.length-1];
+      v = Math.cos(Math.PI * sg.n * (x - sg.a)/sg.L) * WAVE_DIR;
     }
     const d = v*A;
-    out.push([P[i][0] - ty*d, P[i][1] + tx*d, cum[i]/total, straight ? v : 0, -ty, tx]);
+    out.push([P[i][0] - ty*d, P[i][1] + tx*d, cum[i]/total, v, -ty, tx]);
   }
   return out;
 }
-const WAVE_AMP = .24, WAVE_DIR = -1, WAVE_CORNER = -.75;   // 물결 높이, 모서리 옆 첫 물결이 볼록한 쪽(-1: 바깥, 1: 안쪽)
+const WAVE_AMP = .24, WAVE_DIR = -1;   // 물결 높이, 모서리 물결이 볼록한 쪽(-1: 바깥, 1: 안쪽)
 function wavyRun(run, w){
   if(run.sides) return wavySides(run, w);
   const P = run.pts.slice(); if(run.closed) P.push(P[0]);
