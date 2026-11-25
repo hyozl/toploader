@@ -1266,7 +1266,10 @@ function drawLayer(ctx, stamps, st, seed, base){
     ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     // 그라데이션이면 중간 색으로, 아니면 크림 색의 그늘 톤으로 테두리 경로를 따라 굵게 칠해요
     const w0 = stamps[0].s;
-    ctx.strokeStyle = shadesAt(.5).dark; ctx.lineWidth = w0*.8;
+    // 바닥 크림: 크림 덩어리 뒤에 숨도록 좁게, 색은 그라데이션 방향(사선)을 그대로 따라가요
+    const D2 = (TW+TH)/2, bg = ctx.createLinearGradient(X0, Y0, X0+D2, Y0+D2);
+    for(let k=0;k<=8;k++) bg.addColorStop(k/8, shadesAt(k/8).base);
+    ctx.strokeStyle = bg; ctx.lineWidth = w0*.58;
     // 테두리 전체에 한 번에 드리우는 흐릿한 그림자 (덩어리마다 그리면 울퉁불퉁 얼룩져 보여요)
     if(!creamQuick) ctx.shadowColor = 'rgba(55,35,65,.108)'; ctx.shadowBlur = Math.min(w0*.35, 26); ctx.shadowOffsetX = 0; ctx.shadowOffsetY = Math.min(w0*.05, 4);
     (stamps.runs || []).forEach(r=>{
