@@ -459,6 +459,7 @@ const STICKERS = [
   // ── 진주: 은은한 진주광을 살리려고 hi를 높게
   { id:'pearlheart', name:'진주 하트', src:'parts/pearlheart.webp', tint:true, ref:.80, hi:.11, depth:1.3 },
   { id:'pearlbow', name:'진주 리본', src:'parts/pearlbow.webp', tint:true, ref:.76, hi:.11, depth:1.3, base:1.4 },
+  { id:'moon',    name:'달', src:'parts/moon.webp', tint:true, ref:.86, hi:.11, depth:1.3 },
   // ── 보석·유리 (glass): 비치는 정도는 그대로 두고, 반짝이는 면은 하얗게
   { id:'gem',     name:'물방울 보석', src:'parts/gem.webp', tint:true, ref:.78, glass:true },
   { id:'gem2',    name:'동그라미 보석', src:'parts/gem2.webp', tint:true, ref:.79, glass:true },
@@ -473,6 +474,8 @@ const STICKERS = [
   // ── 금속 (metal): 결·흠집·명암은 그대로, 빛나는 곳은 금속 광택처럼
   { id:'chain',   name:'체인', src:'parts/chain.webp', tint:true, ref:.62, depth:1.15, hi:.25, base:2.6, thumb:'rotate(-35deg) scale(3.4)' },   // thumb: 목록 칸에서만 크게 보이게
   { id:'cross',   name:'십자가', src:'parts/cross.webp', tint:true, metal:true, ref:.33, base:1.3 },
+  { id:'key',     name:'열쇠', src:'parts/key.webp', tint:true, metal:true, ref:.6, base:1.4 },
+  { id:'crown',   name:'왕관', src:'parts/crown.webp', tint:true, metal:true, ref:.68, base:1.4 },
   { id:'gear',    name:'톱니바퀴', src:'parts/gear.webp', tint:true, metal:true, ref:.45 },
   { id:'mic',     name:'마이크', src:'parts/mic.webp', base:1.4 },
 ];
@@ -521,7 +524,7 @@ let textStyle = { color:'#ffffff', font:'jua', outline:true };
 /* 파츠 색 입히기: 밝기는 원본을 따르고 색만 바꿔요. 아주 밝은 하이라이트는 하얗게 남겨서 레진 광택을 살려요 */
 const PART_COLORS = [
   { c:'#ffffff', name:'원본 색' }, { c:'#ffc6da', name:'핑크' }, { c:'#dccbf6', name:'라벤더' }, { c:'#bfdfff', name:'하늘' },
-  { c:'#c2eedc', name:'민트' }, { c:'#fff0b3', name:'레몬' },
+  { c:'#fff0b3', name:'레몬' },
 ];
 let partColor = '#ffffff';
 const tintCache = new Map();
@@ -797,7 +800,7 @@ function shadowSprite(img, blur){
   const cv = document.createElement('canvas'); cv.width = iw + pad*2; cv.height = ih + pad*2;
   const g = cv.getContext('2d'), far = cv.width + iw + 50;
   // 그림자만 남기려고 그림은 캔버스 밖에 그리고, 그림자만 안으로 옮겨 와요
-  g.shadowColor = 'rgba(50,30,60,.26)'; g.shadowBlur = blur; g.shadowOffsetX = far;
+  g.shadowColor = 'rgba(50,30,60,.234)'; g.shadowBlur = blur;   // 파츠 그림자 (처음보다 약 30% 연하게) g.shadowOffsetX = far;
   g.drawImage(img, pad - far, pad);
   const v = { blur, cv, pad }; shadowCache.set(img, v); return v;
 }
