@@ -638,30 +638,14 @@ function itemSize(it){
 /* =========================================================
    그리기: 화면과 저장 이미지가 같은 함수를 씀
    ========================================================= */
-function render(ctx, s, tx, ty, edit){
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
-  ctx.setTransform(s,0,0,s,tx,ty);
-  const clear = CASE_COLORS.find(c=>c.c===state.caseColor && c.clear);
-  const tint = TINT/100, gl = GLOSS/100;
-
-  ctx.save();
-  ctx.beginPath(); rr(ctx,X0,Y0,TW,TH,R); ctx.clip();
-
-  // 1) 사진
-  ctx.save();
-  ctx.beginPath(); rr(ctx,IN.x,IN.y,IN.w,IN.h,IN.r); ctx.clip();
-  const img = images[state.photo.id];
-  if(img){
-    const p = state.photo, iw = img.width, ih = img.height, a = p.rot*DEG, c = Math.abs(Math.cos(a)), sn = Math.abs(Math.sin(a));
-    const k = Math.max((IN.w*c + IN.h*sn)/iw, (IN.w*sn + IN.h*c)/ih) * p.zoom;   // 돌려도 빈틈 없이 꽉 차게
-    ctx.translate(IN.cx+p.ox, IN.cy+p.oy); ctx.rotate(p.rot*DEG);
-    ctx.drawImage(img, -iw*k/2, -ih*k/2, iw*k, ih*k);
-  } else {
-    ctx.fillStyle = 'rgba(255,253,248,.55)'; ctx.fillRect(IN.x,IN.y,IN.w,IN.h);
-  }
-  ctx.restore();
-
+let caseCache = { key:'', cv:null };
+function caseLayer(ctx0, clear, tint, gl){
+  const m = ctx0.getTransform(), sc = Math.min(4, Math.hypot(m.a, m.b));
+  const key = JSON.stringify([state.caseColor, state.glitter, !!clear, tint, gl, Math.round(sc*100)]);
+  if(caseCache.key === key) return caseCache.cv;
+  const cv = caseCache.cv || document.createElement('canvas'); cv.width = Math.ceil(LW*sc); cv.height = Math.ceil(LH*sc);
+  const ctx = cv.getContext('2d'); ctx.setTransform(sc,0,0,sc,0,0); ctx.clearRect(0,0,LW,LH);
+  ctx.save(); ctx.beginPath(); rr(ctx,X0,Y0,TW,TH,R); ctx.clip();
   // 2) 플라스틱 테두리
   ctx.beginPath(); rr(ctx,X0,Y0,TW,TH,R); rr(ctx,IN.x,IN.y,IN.w,IN.h,IN.r);
   ctx.fillStyle = clear ? `rgba(236,242,250,${.25+tint*.35})` : rgba(state.caseColor, .2+tint*.75);
@@ -689,15 +673,8 @@ function render(ctx, s, tx, ty, edit){
       g.addColorStop(Math.max(0,t-w),'rgba(255,255,255,0)'); g.addColorStop(t,'rgba(255,255,255,.75)'); g.addColorStop(Math.min(1,t+w),'rgba(255,255,255,0)');
       ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.fillRect(X0, Y0, TW, TH);
     });
-    // 4) 반짝이 조각 (무지갯빛)
-    let seed = 42; const rnd = ()=> (seed = (seed*16807)%2147483647)/2147483647;
-    for(let i=0;i<360;i++){
-      const x = X0+rnd()*TW, y = Y0+rnd()*TH, r = .8+rnd()*2.2, t = rnd(), hue = Math.round(rnd()*360);
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = t<.45 ? 'rgba(255,255,255,.95)' : `hsla(${hue},90%,80%,.95)`;
-      if(rnd()<.14){ const k=r*2.8; ctx.beginPath(); ctx.moveTo(x,y-k); ctx.lineTo(x+k*.22,y-k*.22); ctx.lineTo(x+k,y); ctx.lineTo(x+k*.22,y+k*.22); ctx.lineTo(x,y+k); ctx.lineTo(x-k*.22,y+k*.22); ctx.lineTo(x-k,y); ctx.lineTo(x-k*.22,y-k*.22); ctx.fillStyle='rgba(255,255,255,.98)'; ctx.fill(); }
-      else { ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
-    }
+    // 4) 반짝이 조각 (무지갯빛): 한 번 그려 두고 다시 써요
+    ctx.globalAlpha = 1; ctx.drawImage(holoSparkles(ctx), 0, 0, LW, LH);
     ctx.restore();
   }
 
@@ -723,6 +700,51 @@ function render(ctx, s, tx, ty, edit){
   const g3 = ctx.createRadialGradient(X0+TW-70, Y0+TH-80, 0, X0+TW-70, Y0+TH-80, 120);
   g3.addColorStop(0,`rgba(255,255,255,${.18*gl})`); g3.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle = g3; ctx.fillRect(X0,Y0,TW,TH);
+  ctx.restore();
+  caseCache = { key, cv }; return cv;
+}
+// 홀로그램 반짝이 조각: 화면 크기마다 한 번만 그려요 (매번 360개를 그리면 버벅여요)
+let holoCache = { sc:0, cv:null };
+function holoSparkles(ctx){
+  const m = ctx.getTransform(), sc = Math.min(4, Math.hypot(m.a, m.b));
+  if(holoCache.cv && Math.abs(holoCache.sc - sc) < .01) return holoCache.cv;
+  const cv = holoCache.cv || document.createElement('canvas'); cv.width = Math.ceil(LW*sc); cv.height = Math.ceil(LH*sc);
+  const g = cv.getContext('2d'); g.setTransform(sc,0,0,sc,0,0); g.clearRect(0,0,LW,LH);
+  let seed = 42; const rnd = ()=> (seed = (seed*16807)%2147483647)/2147483647;
+  for(let i=0;i<360;i++){
+    const x = X0+rnd()*TW, y = Y0+rnd()*TH, r = .8+rnd()*2.2, t = rnd(), hue = Math.round(rnd()*360);
+    g.fillStyle = t<.45 ? 'rgba(255,255,255,.95)' : `hsla(${hue},90%,80%,.95)`;
+    if(rnd()<.14){ const k=r*2.8; g.beginPath(); g.moveTo(x,y-k); g.lineTo(x+k*.22,y-k*.22); g.lineTo(x+k,y); g.lineTo(x+k*.22,y+k*.22); g.lineTo(x,y+k); g.lineTo(x-k*.22,y+k*.22); g.lineTo(x-k,y); g.lineTo(x-k*.22,y-k*.22); g.fillStyle='rgba(255,255,255,.98)'; g.fill(); }
+    else { g.beginPath(); g.arc(x,y,r,0,Math.PI*2); g.fill(); }
+  }
+  holoCache = { sc, cv }; return cv;
+}
+function render(ctx, s, tx, ty, edit){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+  ctx.setTransform(s,0,0,s,tx,ty);
+  const clear = CASE_COLORS.find(c=>c.c===state.caseColor && c.clear);
+  const tint = TINT/100, gl = GLOSS/100;
+
+  ctx.save();
+  ctx.beginPath(); rr(ctx,X0,Y0,TW,TH,R); ctx.clip();
+
+  // 1) 사진
+  ctx.save();
+  ctx.beginPath(); rr(ctx,IN.x,IN.y,IN.w,IN.h,IN.r); ctx.clip();
+  const img = images[state.photo.id];
+  if(img){
+    const p = state.photo, iw = img.width, ih = img.height, a = p.rot*DEG, c = Math.abs(Math.cos(a)), sn = Math.abs(Math.sin(a));
+    const k = Math.max((IN.w*c + IN.h*sn)/iw, (IN.w*sn + IN.h*c)/ih) * p.zoom;   // 돌려도 빈틈 없이 꽉 차게
+    ctx.translate(IN.cx+p.ox, IN.cy+p.oy); ctx.rotate(p.rot*DEG);
+    ctx.drawImage(img, -iw*k/2, -ih*k/2, iw*k, ih*k);
+  } else {
+    ctx.fillStyle = 'rgba(255,253,248,.55)'; ctx.fillRect(IN.x,IN.y,IN.w,IN.h);
+  }
+  ctx.restore();
+
+  // 2)~3) 플라스틱 테두리·홀로그램·광택: 케이스 색이 바뀔 때만 새로 그리고 다시 써요
+  ctx.drawImage(caseLayer(ctx, clear, tint, gl), 0, 0, LW, LH);
   ctx.restore();
 
   // 4) 바깥 테두리 선
@@ -767,6 +789,18 @@ function drawBrand(ctx, clear){
   ctx.restore();
 }
 
+const shadowCache = new WeakMap();
+function shadowSprite(img, blur){
+  const hit = shadowCache.get(img);
+  if(hit && Math.abs(hit.blur - blur) < .5) return hit;
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, pad = Math.ceil(blur*2.2) + 2;
+  const cv = document.createElement('canvas'); cv.width = iw + pad*2; cv.height = ih + pad*2;
+  const g = cv.getContext('2d'), far = cv.width + iw + 50;
+  // 그림자만 남기려고 그림은 캔버스 밖에 그리고, 그림자만 안으로 옮겨 와요
+  g.shadowColor = 'rgba(50,30,60,.26)'; g.shadowBlur = blur; g.shadowOffsetX = far;
+  g.drawImage(img, pad - far, pad);
+  const v = { blur, cv, pad }; shadowCache.set(img, v); return v;
+}
 function drawItem(ctx, it, S){
   ctx.save();
   ctx.translate(it.x, it.y); ctx.rotate(it.rot*DEG);
@@ -774,8 +808,16 @@ function drawItem(ctx, it, S){
   if(it.type==='sticker'){
     const img = partImg(it);
     if(img && (img.naturalWidth || (img instanceof HTMLCanvasElement && img.width))){
-      const {w,h} = itemSize(it), k = S*it.scale;
-      ctx.shadowColor = 'rgba(50,30,60,.26)'; ctx.shadowBlur = 7.3*k; ctx.shadowOffsetX = 1.2*k; ctx.shadowOffsetY = 4.9*k;   // 파츠 그림자 (처음보다 약 20% 연하게)
+      const {w,h} = itemSize(it), iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+      // 파츠 그림자: 흐린 그림자 모양을 한 번 만들어 두고 다시 써요 (매번 흐리게 계산하면 버벅여요)
+      //   그림자는 파츠가 돌아가도 늘 화면 아래쪽으로 떨어져요
+      const sh = shadowSprite(img, 7.3 * Math.max(iw, ih) / (STICKER_BASE*((STICKERS.find(x => x.id === it.sid) || {}).base || 1)));
+      const ux = w/iw, uy = h/ih;
+      ctx.restore(); ctx.save();
+      ctx.translate(it.x + 1.2*it.scale, it.y + 4.9*it.scale); ctx.rotate(it.rot*DEG); if(it.flip) ctx.scale(-1, 1);
+      ctx.drawImage(sh.cv, -w/2 - sh.pad*ux, -h/2 - sh.pad*uy, (iw + sh.pad*2)*ux, (ih + sh.pad*2)*uy);
+      ctx.restore(); ctx.save();
+      ctx.translate(it.x, it.y); ctx.rotate(it.rot*DEG); if(it.flip) ctx.scale(-1, 1);
       ctx.drawImage(img,-w/2,-h/2,w,h);
     }
   } else {
@@ -1069,12 +1111,14 @@ function creamGrain(){
   for(let i=0;i<im.data.length;i+=4){ const v = rnd() < .5 ? 0 : 255; im.data[i]=im.data[i+1]=im.data[i+2]=v; im.data[i+3] = Math.round(rnd()*255); }
   g.putImageData(im, 0, 0); return grainCv;
 }
+let layerCv = null;
+function layerCanvas(w, h){ if(!layerCv) layerCv = document.createElement('canvas'); if(layerCv.width !== w || layerCv.height !== h){ layerCv.width = w; layerCv.height = h; } return layerCv; }
 function creamRope(ctx, lines, w, shadesAt, small){
   let g = ctx;
   // 반투명한 층: 불투명하게 따로 그린 다음 정해진 투명도로 한 번에 얹어요
   const layer = (alpha, fn)=>{
-    const t = document.createElement('canvas'); t.width = ctx.canvas.width; t.height = ctx.canvas.height;
-    const x = t.getContext('2d'); x.setTransform(ctx.getTransform()); x.lineCap = g.lineCap; x.lineJoin = 'round';
+    const t = layerCanvas(ctx.canvas.width, ctx.canvas.height);
+    const x = t.getContext('2d'); x.setTransform(1,0,0,1,0,0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.clearRect(0,0,t.width,t.height); x.setTransform(ctx.getTransform()); x.lineCap = g.lineCap; x.lineJoin = 'round';
     g = x; fn(); g = ctx;
     ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha = alpha; ctx.drawImage(t, 0, 0); ctx.restore();
   };
@@ -1083,7 +1127,7 @@ function creamRope(ctx, lines, w, shadesAt, small){
   let total = 0; lines.forEach(l => total += l.q.length);
   let acc = 0;
   lines.forEach(l => {
-    const q = l.q, step = 10;
+    const q = l.q, step = small ? 40 : 10;
     for(let i=0;i<q.length-1;i+=step){
       const part = q.slice(i, Math.min(q.length, i+step+1)), u = (acc + i)/Math.max(1,total-1);
       const mp = part[part.length>>1]; segs.push({ part, cs: shadesAt(diagT(mp[0], mp[1])) });
@@ -1094,15 +1138,15 @@ function creamRope(ctx, lines, w, shadesAt, small){
   const line = (part, dx=0, dy=0)=>{ g.beginPath(); part.forEach((p,i)=> i ? g.lineTo(p[0]+dx,p[1]+dy) : g.moveTo(p[0]+dx,p[1]+dy)); };
   g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
   // 1) 그림자: 줄 전체를 한 번에 (조각마다 그리면 느려요)
-  g.shadowColor = 'rgba(55,35,65,.09)'; g.shadowBlur = Math.min(w*.32, 24); g.shadowOffsetX = 0; g.shadowOffsetY = Math.min(w*.04, 3);   // 흐릿하고 은은하게
+  if(small){ g.shadowColor = 'transparent'; } else g.shadowColor = 'rgba(55,35,65,.09)'; g.shadowBlur = Math.min(w*.32, 24); g.shadowOffsetX = 0; g.shadowOffsetY = Math.min(w*.04, 3);   // 흐릿하고 은은하게
   g.strokeStyle = shadesAt(.5).dark; g.lineWidth = tw;
   lines.forEach(l => { line(l.q); if(l.closed) g.closePath(); g.stroke(); });
   // 바닥에 닿는 곳의 짙고 좁은 그늘 (크림이 케이스 위에 얹힌 느낌)
-  g.shadowColor = 'rgba(55,35,65,.144)'; g.shadowBlur = Math.min(w*.06, 5); g.shadowOffsetY = Math.min(w*.02, 1.5);
+  g.shadowColor = small ? 'transparent' : 'rgba(55,35,65,.144)'; g.shadowBlur = Math.min(w*.06, 5); g.shadowOffsetY = Math.min(w*.02, 1.5);
   lines.forEach(l => { line(l.q); if(l.closed) g.closePath(); g.stroke(); });
   g.shadowColor = 'transparent';
   // 2) 둥근 몸통: 가장자리부터 가운데까지 여러 겹을 조금씩 밝게 겹쳐서, 통통한 크림 줄기처럼 매끈하게
-  const N = 18, tone = (cs, t)=> t < .4 ? shade(cs.base, .88 + .12*t/.4) : mixW(cs.base, Math.min(.5, (t-.4)/.6*.5));   // 가장자리는 살짝 어둡게, 가운데로 갈수록 하얗게
+  const N = small ? 7 : 18, tone = (cs, t)=> t < .4 ? shade(cs.base, .88 + .12*t/.4) : mixW(cs.base, Math.min(.5, (t-.4)/.6*.5));   // 가장자리는 살짝 어둡게, 가운데로 갈수록 하얗게
   for(let k=0;k<N;k++){
     const t = k/(N-1), wk = tw*(1 - t*.8), ox = -tw*.09*Math.pow(t, 1.3), oy = -tw*.12*Math.pow(t, 1.3);
     pass((p,cs)=>{ g.strokeStyle = tone(cs, t); g.lineWidth = wk; line(p, ox, oy); g.stroke(); });
@@ -1112,8 +1156,8 @@ function creamRope(ctx, lines, w, shadesAt, small){
   const par = (q, o, k, dx, dy)=>{ g.beginPath(); q.forEach((p,i)=>{ const oo = o + tw*.018*Math.sin(TAU*k*p[2] + o*7), x = p[0] + p[4]*oo + dx, y = p[1] + p[5]*oo + dy; i ? g.lineTo(x,y) : g.moveTo(x,y); }); };
   const RG = [[-.3,23],[-.15,31],[0,27],[.15,29],[.3,25]];
   const rgc = shadesAt(.5).ridge;   // 결은 줄 전체를 한 번에 그려야 이음매에 금이 안 생겨요
-  layer(.1,  ()=> RG.forEach(([o,k]) => lines.forEach(l=>{ g.strokeStyle = rgc; g.lineWidth = tw*.035; par(l.q, o*tw, k, tw*.008, tw*.012); g.stroke(); })));
-  layer(.28, ()=> RG.forEach(([o,k]) => lines.forEach(l=>{ g.strokeStyle = '#fff'; g.lineWidth = tw*.03; par(l.q, o*tw, k, -tw*.012, -tw*.016); g.stroke(); })));
+  if(!small) layer(.1,  ()=> RG.forEach(([o,k]) => lines.forEach(l=>{ g.strokeStyle = rgc; g.lineWidth = tw*.035; par(l.q, o*tw, k, tw*.008, tw*.012); g.stroke(); })));
+  if(!small) layer(.28, ()=> RG.forEach(([o,k]) => lines.forEach(l=>{ g.strokeStyle = '#fff'; g.lineWidth = tw*.03; par(l.q, o*tw, k, -tw*.012, -tw*.016); g.stroke(); })));
   // 4) 크림 표면의 보송보송한 결 (아주 고운 점무늬를 크림 모양 안에만)
   if(!small) layer(.045, ()=>{
     lines.forEach(l => { g.strokeStyle = '#000'; g.lineWidth = tw*.96; line(l.q); if(l.closed) g.closePath(); g.stroke(); });
@@ -1137,22 +1181,11 @@ function creamRope(ctx, lines, w, shadesAt, small){
   g.restore(); g.globalAlpha = 1;
 }
 // 물결 크림은 한 번 그려 두고 다시 써요 (움직일 때마다 새로 그리면 버벅여요)
-let ropeCache = { key:'', cv:null, lines:null };
+let ropeCache = { lk:'', lines:null };   // 물결 모양(좌표)만 기억해 둬요
 function ropeLayer(ctx, runs, w, st, shadesAt){
-  const m = ctx.getTransform(), sc = Math.hypot(m.a, m.b);
   const lk = JSON.stringify([state.cream.edges, w]);
   let lines = ropeCache.lk === lk ? ropeCache.lines : runs.map(r => ({ q: wavyRun(r, w), closed: r.closed }));
-  if(sc > 3.2){ ropeCache.lk = lk; ropeCache.lines = lines; creamRope(ctx, lines, w, shadesAt); return lines; }   // 아주 크게 확대했을 땐 바로 그려요
-  const key = JSON.stringify([lk, st.color, st.color2, st.grad, Math.round(sc*100)]);
-  if(ropeCache.key !== key){
-    const cv = ropeCache.cv || document.createElement('canvas');
-    cv.width = Math.ceil(LW*sc); cv.height = Math.ceil(LH*sc);
-    const c2 = cv.getContext('2d'); c2.setTransform(sc,0,0,sc,0,0); c2.clearRect(0,0,LW,LH);
-    creamRope(c2, lines, w, shadesAt);
-    ropeCache = { key, cv, lines, lk };
-  }
-  ctx.drawImage(ropeCache.cv, 0, 0, LW, LH);
-  return lines;
+  ropeCache.lk = lk; ropeCache.lines = lines; creamRope(ctx, lines, w, shadesAt, creamQuick); return lines;   // 크림 전체를 drawCream에서 한 번에 저장해 두니 여기선 바로 그려요
 }
 let bCache = { key:'', v:[] };
 function borderStamps(){
@@ -1215,7 +1248,7 @@ function drawLayer(ctx, stamps, st, seed, base){
     const w0 = stamps[0].s;
     ctx.strokeStyle = shadesAt(.5).dark; ctx.lineWidth = w0*.8;
     // 테두리 전체에 한 번에 드리우는 흐릿한 그림자 (덩어리마다 그리면 울퉁불퉁 얼룩져 보여요)
-    ctx.shadowColor = 'rgba(55,35,65,.108)'; ctx.shadowBlur = Math.min(w0*.35, 26); ctx.shadowOffsetX = 0; ctx.shadowOffsetY = Math.min(w0*.05, 4);
+    if(!creamQuick) ctx.shadowColor = 'rgba(55,35,65,.108)'; ctx.shadowBlur = Math.min(w0*.35, 26); ctx.shadowOffsetX = 0; ctx.shadowOffsetY = Math.min(w0*.05, 4);
     (stamps.runs || []).forEach(r=>{
       ctx.beginPath(); r.pts.forEach((q,i)=> i ? ctx.lineTo(q[0],q[1]) : ctx.moveTo(q[0],q[1]));
       if(r.closed) ctx.closePath(); ctx.stroke();
@@ -1236,9 +1269,26 @@ function drawLayer(ctx, stamps, st, seed, base){
     }
   });
 }
+// 크림은 바뀔 때만 새로 그리고, 파츠를 옮기거나 확대할 때는 그려 둔 걸 다시 써요
+let creamCache = { key:'', cv:null };
+let creamQuick = false;   // 꾸욱 짜는 중이나 두께를 끄는 중엔 가볍게 그려요 (손을 떼면 다시 곱게)
 function drawCream(ctx){
   const E = state.cream.edges;
-  if(E.top || E.bottom || E.left || E.right) drawLayer(ctx, borderStamps(), state.cream.style, 1, true);
+  if(E.top || E.bottom || E.left || E.right){
+    const m = ctx.getTransform(), sc = Math.hypot(m.a, m.b);
+    if(sc > 3.2) drawLayer(ctx, borderStamps(), state.cream.style, 1, true);   // 아주 크게 확대했을 땐 바로 그려요
+    else {
+      const key = JSON.stringify([E, state.cream.style, Math.round(sc*100), creamQuick]);
+      if(creamCache.key !== key){
+        const cv = creamCache.cv || document.createElement('canvas');
+        cv.width = Math.ceil(LW*sc); cv.height = Math.ceil(LH*sc);
+        const g = cv.getContext('2d'); g.setTransform(sc,0,0,sc,0,0); g.clearRect(0,0,LW,LH);
+        drawLayer(g, borderStamps(), state.cream.style, 1, true);
+        creamCache = { key, cv };
+      }
+      ctx.drawImage(creamCache.cv, 0, 0, LW, LH);
+    }
+  }
   state.strokes.forEach((st,i) => drawLayer(ctx, stampsAlong(st.points, st.tip, false), st, i+2));
 }
 
@@ -1814,7 +1864,7 @@ function startBorderSqueeze(){
   const E = state.cream.edges;
   state.cream.edges = { top:true, bottom:true, left:true, right:true };   // 언제나 네 면 전체에 짜요
   state.cream.style.size = BMIN;
-  bsq = { t: performance.now(), raf: 0 };
+  bsq = { t: performance.now(), raf: 0 }; creamQuick = true;
   $('squeezeBtn').classList.add('on');
   const tick = now => {
     if(!bsq) return;
@@ -1828,7 +1878,7 @@ function startBorderSqueeze(){
 }
 function stopBorderSqueeze(){
   if(!bsq) return;
-  cancelAnimationFrame(bsq.raf); bsq = null;
+  cancelAnimationFrame(bsq.raf); bsq = null; creamQuick = false;
   state.cream.style.size = Math.round(state.cream.style.size);
   $('squeezeBtn').classList.remove('on');
   record(); syncCream(); draw();
@@ -1846,8 +1896,9 @@ function syncMeter(){
   if(document.activeElement !== r || bsq){ r.value = v; }
   $('creamSizeOut').value = on ? v : '-';
 }
-$('creamSize').addEventListener('input', e=>{ state.cream.style.size = +e.target.value; $('creamSizeOut').value = e.target.value; draw(); });
-$('creamSize').addEventListener('change', ()=>{ record(); syncCream(); });
+$('creamSize').addEventListener('input', e=>{ creamQuick = true; state.cream.style.size = +e.target.value; $('creamSizeOut').value = e.target.value; draw(); });
+$('creamSize').addEventListener('change', ()=>{ creamQuick = false; record(); syncCream(); draw(); });
+['pointerup','pointercancel','blur'].forEach(t => $('creamSize').addEventListener(t, ()=>{ if(creamQuick && !bsq){ creamQuick = false; draw(); } }));
 
 // 깍지
 const tipCanvases = {};
